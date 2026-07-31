@@ -165,8 +165,12 @@
   .preview-col{
     flex: 1 1 320px;
     min-width: 280px;
-    position: sticky;
-    top: 20px;
+  }
+  @media (min-width: 800px){
+    .preview-col{
+      position: sticky;
+      top: 20px;
+    }
   }
   .slides-count{
     font-size: 13px;
@@ -180,15 +184,19 @@
     overflow-x: auto;
     padding-bottom: 8px;
     scroll-snap-type: x mandatory;
+    min-height: 260px;
+    -webkit-overflow-scrolling: touch;
   }
   .strip canvas{
     scroll-snap-align: start;
     border-radius: 10px;
     border: 1px solid var(--line);
     width: 220px;
+    min-width: 220px;
     height: auto;
     flex-shrink:0;
     background:#000;
+    display:block;
   }
   .empty-state{
     font-size: 13px;
