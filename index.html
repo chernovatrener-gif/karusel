@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Конструктор карусели</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  :root{
+    --bg: #f7f6f3;
+    --panel: #ffffff;
+    --ink: #1c1c1c;
+    --muted: #767267;
+    --line: #e4e1da;
+    --accent: #b5673a;
+    --accent-soft: #f1e3d8;
+    --radius: 14px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+  }
+  header{
+    padding: 28px 24px 8px;
+    text-align:center;
+  }
+  header h1{
+    font-size: 22px;
+    font-weight: 700;
+    margin: 0 0 6px;
+  }
+  header p{
+    margin:0;
+    color: var(--muted);
+    font-size: 14px;
+  }
+  .wrap{
+    display:flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 20px;
+    align-items: flex-start;
+  }
+  .panel{
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 18px;
+    flex: 1 1 380px;
+    min-width: 320px;
+  }
+  .panel h2{
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--muted);
+    margin: 0 0 14px;
+  }
+  .field{
+    margin-bottom: 16px;
+  }
+  .field label{
+    display:block;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .hint{
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+  input[type=text], textarea{
+    width:100%;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 14px;
+    font-family: inherit;
+    background: #fdfdfc;
+  }
+  textarea{
+    min-height: 220px;
+    resize: vertical;
+    line-height: 1.5;
+  }
+  .dropzone{
+    border: 2px dashed var(--line);
+    border-radius: 10px;
+    padding: 24px 12px;
+    text-align:center;
+    font-size: 13px;
+    color: var(--muted);
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+  }
+  .dropzone.drag{
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
+  .dropzone img{
+    max-width: 100%;
+    max-height: 160px;
+    border-radius: 6px;
+    margin-bottom: 8px;
+  }
+  .seg{
+    display:flex;
+    gap:8px;
+  }
+  .seg button{
+    flex:1;
+    padding: 9px 8px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: #fdfdfc;
+    font-size: 13px;
+    cursor:pointer;
+    font-family: inherit;
+  }
+  .seg button.active{
+    background: var(--ink);
+    color: #fff;
+    border-color: var(--ink);
+  }
+  .checks{
+    display:flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .checks label{
+    display:flex;
+    align-items:center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor:pointer;
+  }
+  .row{
+    display:flex;
+    gap: 14px;
+  }
+  .row > div{flex:1;}
+  input[type=range]{
+    width: 100%;
+  }
+  input[type=color]{
+    width: 44px;
+    height: 34px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    padding: 2px;
+    background: none;
+    cursor:pointer;
+  }
+  .rangeval{
+    font-size: 12px;
+    color: var(--muted);
+    float:right;
+  }
+  .preview-col{
+    flex: 1 1 320px;
+    min-width: 280px;
+    position: sticky;
+    top: 20px;
+  }
+  .slides-count{
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+  .slides-count b{color: var(--ink);}
+  .strip{
+    display:flex;
+    gap: 10px;
+    overflow-x: auto;
+    padding-bottom: 8px;
+    scroll-snap-type: x mandatory;
+  }
+  .strip canvas{
+    scroll-snap-align: start;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    width: 220px;
+    height: auto;
+    flex-shrink:0;
+    background:#000;
+  }
+  .empty-state{
+    font-size: 13px;
+    color: var(--muted);
+    padding: 40px 10px;
+    text-align:center;
+    border: 1px dashed var(--line);
+    border-radius: 10px;
+  }
+  .actions{
+    display:flex;
+    gap: 10px;
+    margin-top: 14px;
+  }
+  button.primary{
+    flex:1;
+    padding: 13px;
+    border-radius: 10px;
+    border: none;
+    background: var(--accent);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    cursor:pointer;
+    font-family: inherit;
+  }
+  button.primary:disabled{
+    opacity: .4;
+    cursor: not-allowed;
+  }
+  button.secondary{
+    padding: 13px 16px;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: #fdfdfc;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  footer{
+    text-align:center;
+    padding: 30px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Конструктор карусели</h1>
+  <p>Загрузи фон, впиши ник, вставь текст пунктами — слайды соберутся сами. Формат 1080×1350</p>
+</header>
+
+<div class="wrap">
+
+  <!-- LEFT: controls -->
+  <div class="panel" id="controls">
+
+    <h2>Фон</h2>
+    <div class="field">
+      <div class="dropzone" id="dropzone">
+        <div id="dzContent">Перетащи сюда фото или нажми, чтобы выбрать<br><span class="hint">лучше вертикальное, человек сбоку</span></div>
+      </div>
+      <input type="file" id="fileInput" accept="image/*" style="display:none">
+    </div>
+
+    <div class="field">
+      <label>Твой ник</label>
+      <input type="text" id="nick" placeholder="@anna.smm">
+    </div>
+
+    <div class="field">
+      <label>Где на фото человек</label>
+      <div class="seg" id="facePos">
+        <button data-val="right" class="active">Справа</button>
+        <button data-val="left">Слева</button>
+        <button data-val="none">Нет / по центру</button>
+      </div>
+      <div class="hint">Текст будет обходить лицо с этой стороны</div>
+    </div>
+
+    <h2>Элементы рамки</h2>
+    <div class="field checks">
+      <label><input type="checkbox" id="showNick" checked> ник</label>
+      <label><input type="checkbox" id="showLines" checked> линии</label>
+      <label><input type="checkbox" id="showIcons" checked> иконки share/save</label>
+      <label><input type="checkbox" id="showArrow" checked> стрелка «дальше»</label>
+      <label><input type="checkbox" id="showCounter" checked> счётчик N/total</label>
+    </div>
+
+    <div class="field row">
+      <div>
+        <label>Затемнение фона <span class="rangeval" id="dimVal">35%</span></label>
+        <input type="range" id="dim" min="0" max="80" value="35">
+        <div class="hint">0 — без затемнения</div>
+      </div>
+    </div>
+
+    <div class="field row">
+      <div>
+        <label>Цвет линий</label>
+        <input type="color" id="lineColor" value="#ffffff">
+      </div>
+      <div>
+        <label>Длина верхней линии <span class="rangeval" id="lineLenVal">70%</span></label>
+        <input type="range" id="lineLen" min="20" max="100" value="70">
+      </div>
+    </div>
+
+    <h2>Текст поста</h2>
+    <div class="field">
+      <label>Заголовок сверху, дальше блоки через пустую строку</label>
+      <textarea id="postText" placeholder="Заголовок карусели
+
+Первое предложение жирным. Остальной текст этого блока обычным.
+
+1. Второй пункт, тоже с жирным началом. Дальше пояснение.
+
+А как у тебя с этим?"></textarea>
+      <div class="hint">Первая строка = обложка. Каждый блок между пустыми строками = слайд. Последняя строка = вопрос-финал.</div>
+    </div>
+
+    <button class="secondary" id="demoBtn" style="width:100%">Вставить демо-текст</button>
+  </div>
+
+  <!-- RIGHT: preview -->
+  <div class="panel preview-col">
+    <h2>Превью</h2>
+    <div class="slides-count">Слайдов: <b id="slideCount">0</b></div>
+    <div id="stripWrap">
+      <div class="empty-state">Загрузи фон и вставь текст — слайды появятся здесь</div>
+    </div>
+    <div class="actions">
+      <button class="primary" id="downloadBtn" disabled>Скачать ZIP</button>
+    </div>
+  </div>
+
+</div>
+
+<footer>Всё собирается в твоём браузере. Ничего не отправляется на сервер.</footer>
+
+<script>
+(function(){
+  const W = 1080, H = 1350;
+  const state = {
+    bg: null, // Image object
+    nick: '',
+    facePos: 'right',
+    showNick: true, showLines: true, showIcons: true, showArrow: true, showCounter: true,
+    dim: 35,
+    lineColor: '#ffffff',
+    lineLen: 70,
+    text: ''
+  };
+
+  // ---------- persistence ----------
+  function saveSettings(){
+    const s = {...state};
+    delete s.bg; // images not persisted (keep it simple/local)
+    localStorage.setItem('karusel_settings', JSON.stringify(s));
+  }
+  function loadSettings(){
+    try{
+      const raw = localStorage.getItem('karusel_settings');
+      if(!raw) return;
+      const s = JSON.parse(raw);
+      Object.assign(state, s);
+    }catch(e){}
+  }
+
+  // ---------- DOM refs ----------
+  const dropzone = document.getElementById('dropzone');
+  const dzContent = document.getElementById('dzContent');
+  const fileInput = document.getElementById('fileInput');
+  const nickInput = document.getElementById('nick');
+  const facePosBtns = document.querySelectorAll('#facePos button');
+  const showNick = document.getElementById('showNick');
+  const showLines = document.getElementById('showLines');
+  const showIcons = document.getElementById('showIcons');
+  const showArrow = document.getElementById('showArrow');
+  const showCounter = document.getElementById('showCounter');
+  const dim = document.getElementById('dim');
+  const dimVal = document.getElementById('dimVal');
+  const lineColor = document.getElementById('lineColor');
+  const lineLen = document.getElementById('lineLen');
+  const lineLenVal = document.getElementById('lineLenVal');
+  const postText = document.getElementById('postText');
+  const demoBtn = document.getElementById('demoBtn');
+  const stripWrap = document.getElementById('stripWrap');
+  const slideCount = document.getElementById('slideCount');
+  const downloadBtn = document.getElementById('downloadBtn');
+
+  const DEMO = `5 признаков, что ты живёшь на автомате
+
+Просыпаешься уже уставшей. Будильник ещё не прозвенел, а в теле уже тревога — будто день начался без тебя.
+
+Соглашаешься чаще, чем хочешь. "Да, конечно" вылетает раньше, чем ты успеваешь подумать, точно ли ты этого хочешь.
+
+Откладываешь важное на "когда будет время". А время не наступает — потому что на автомате всегда находится, чем его занять.
+
+Раздражаешься на мелочи. Не потому что мелочи важны, а потому что накопилось то, о чём молчишь.
+
+Не помнишь, когда в последний раз выбирала для себя. Не для роли жены, мамы, специалиста — а просто для себя.
+
+Узнаёшь себя хоть в одном пункте?`;
+
+  // ---------- image load ----------
+  function handleFile(file){
+    if(!file || !file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        state.bg = img;
+        dzContent.innerHTML = '';
+        const thumb = document.createElement('img');
+        thumb.src = e.target.result;
+        dzContent.appendChild(thumb);
+        const label = document.createElement('div');
+        label.textContent = 'Нажми, чтобы заменить фото';
+        dzContent.appendChild(label);
+        render();
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  dropzone.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', e => handleFile(e.target.files[0]));
+  ['dragenter','dragover'].forEach(ev => dropzone.addEventListener(ev, e => {
+    e.preventDefault(); dropzone.classList.add('drag');
+  }));
+  ['dragleave','drop'].forEach(ev => dropzone.addEventListener(ev, e => {
+    e.preventDefault(); dropzone.classList.remove('drag');
+  }));
+  dropzone.addEventListener('drop', e => {
+    const file = e.dataTransfer.files[0];
+    handleFile(file);
+  });
+
+  // ---------- controls wiring ----------
+  nickInput.addEventListener('input', () => { state.nick = nickInput.value; render(); saveSettings(); });
+
+  facePosBtns.forEach(btn => btn.addEventListener('click', () => {
+    facePosBtns.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.facePos = btn.dataset.val;
+    render(); saveSettings();
+  }));
+
+  showNick.addEventListener('change', () => { state.showNick = showNick.checked; render(); saveSettings(); });
+  showLines.addEventListener('change', () => { state.showLines = showLines.checked; render(); saveSettings(); });
+  showIcons.addEventListener('change', () => { state.showIcons = showIcons.checked; render(); saveSettings(); });
+  showArrow.addEventListener('change', () => { state.showArrow = showArrow.checked; render(); saveSettings(); });
+  showCounter.addEventListener('change', () => { state.showCounter = showCounter.checked; render(); saveSettings(); });
+
+  dim.addEventListener('input', () => {
+    state.dim = +dim.value; dimVal.textContent = dim.value + '%';
+    render(); saveSettings();
+  });
+  lineColor.addEventListener('input', () => { state.lineColor = lineColor.value; render(); saveSettings(); });
+  lineLen.addEventListener('input', () => {
+    state.lineLen = +lineLen.value; lineLenVal.textContent = lineLen.value + '%';
+    render(); saveSettings();
+  });
+
+  postText.addEventListener('input', () => { state.text = postText.value; render(); saveSettings(); });
+
+  demoBtn.addEventListener('click', () => {
+    postText.value = DEMO;
+    state.text = DEMO;
+    render(); saveSettings();
+  });
+
+  // ---------- text parsing ----------
+  function parseSlides(text){
+    const trimmed = text.trim();
+    if(!trimmed) return [];
+    const blocks = trimmed.split(/\n\s*\n/).map(b => b.trim()).filter(Boolean);
+    if(blocks.length === 0) return [];
+    const title = blocks[0];
+    const rest = blocks.slice(1);
+    const slides = [{type:'cover', title: title}];
+    rest.forEach((block, i) => {
+      const isLast = i === rest.length - 1;
+      // strip leading "1. " / "2)" numbering, keep if present separately
+      const cleaned = block.replace(/^\s*\d+[\.\)]\s*/, '');
+      // split into first sentence (bold) + rest
+      const m = cleaned.match(/^(.+?[\.\!\?])(\s+|$)([\s\S]*)$/);
+      let bold, normal;
+      if(m){
+        bold = m[1];
+        normal = m[3] || '';
+      } else {
+        bold = cleaned;
+        normal = '';
+      }
+      slides.push({
+        type: isLast ? 'question' : 'point',
+        bold, normal,
+        num: i+1
+      });
+    });
+    return slides;
+  }
+
+  // ---------- canvas rendering ----------
+  function wrapText(ctx, text, maxWidth){
+    if(!text) return [];
+    const words = text.split(/\s+/);
+    const lines = [];
+    let cur = '';
+    words.forEach(w => {
+      const test = cur ? cur + ' ' + w : w;
+      if(ctx.measureText(test).width > maxWidth && cur){
+        lines.push(cur);
+        cur = w;
+      } else {
+        cur = test;
+      }
+    });
+    if(cur) lines.push(cur);
+    return lines;
+  }
+
+  function drawSlide(canvas, slide, index, total){
+    canvas.width = W; canvas.height = H;
+    const ctx = canvas.getContext('2d');
+
+    // background
+    if(state.bg){
+      const img = state.bg;
+      const scale = Math.max(W/img.width, H/img.height);
+      const iw = img.width*scale, ih = img.height*scale;
+      const ix = (W-iw)/2, iy = (H-ih)/2;
+      ctx.drawImage(img, ix, iy, iw, ih);
+    } else {
+      ctx.fillStyle = '#2a2a2a';
+      ctx.fillRect(0,0,W,H);
+    }
+
+    // dim overlay
+    if(state.dim > 0){
+      ctx.fillStyle = `rgba(0,0,0,${state.dim/100})`;
+      ctx.fillRect(0,0,W,H);
+    }
+
+    const pad = 64;
+    const textColor = '#ffffff';
+
+    // face-avoid text column
+    let textX = pad, textW = W - pad*2;
+    if(state.facePos === 'right'){ textW = W*0.58 - pad; textX = pad; }
+    else if(state.facePos === 'left'){ textW = W*0.58 - pad; textX = W - textW - pad; }
+
+    // top line
+    if(state.showLines){
+      ctx.strokeStyle = state.lineColor;
+      ctx.lineWidth = 3;
+      let lineW = W * (state.lineLen/100);
+      let lx = pad;
+      if(state.facePos === 'left'){ lx = W - pad - lineW; }
+      ctx.beginPath();
+      ctx.moveTo(lx, 90);
+      ctx.lineTo(lx + lineW, 90);
+      ctx.stroke();
+
+      // bottom line full width
+      ctx.beginPath();
+      ctx.moveTo(pad, H-90);
+      ctx.lineTo(W-pad, H-90);
+      ctx.stroke();
+    }
+
+    // nick
+    if(state.showNick && state.nick){
+      ctx.fillStyle = textColor;
+      ctx.font = '600 30px Arial, sans-serif';
+      ctx.textBaseline = 'alphabetic';
+      let nx = pad;
+      if(state.facePos === 'left'){
+        ctx.textAlign = 'right';
+        nx = W - pad;
+      } else {
+        ctx.textAlign = 'left';
+      }
+      ctx.fillText(state.nick, nx, 60);
+      ctx.textAlign = 'left';
+    }
+
+    // counter
+    if(state.showCounter){
+      ctx.fillStyle = textColor;
+      ctx.font = '500 26px Arial, sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText(`${index+1}/${total}`, W-pad, 60);
+      ctx.textAlign = 'left';
+    }
+
+    // main text block
+    ctx.fillStyle = textColor;
+    let y = H*0.38;
+
+    if(slide.type === 'cover'){
+      ctx.font = '800 62px Arial, sans-serif';
+      const lines = wrapText(ctx, slide.title, textW);
+      const lh = 74;
+      y = H/2 - (lines.length*lh)/2;
+      lines.forEach(line => { ctx.fillText(line, textX, y); y += lh; });
+    } else {
+      // number
+      if(slide.num){
+        ctx.font = '700 40px Arial, sans-serif';
+        ctx.fillStyle = state.dim > 30 ? textColor : textColor;
+        ctx.globalAlpha = 0.55;
+        ctx.fillText(String(slide.num).padStart(2,'0'), textX, y - 60);
+        ctx.globalAlpha = 1;
+      }
+      // bold sentence
+      ctx.font = '700 46px Arial, sans-serif';
+      const boldLines = wrapText(ctx, slide.bold, textW);
+      const lh1 = 58;
+      boldLines.forEach(line => { ctx.fillText(line, textX, y); y += lh1; });
+
+      // normal text
+      if(slide.normal){
+        y += 14;
+        ctx.font = '400 36px Arial, sans-serif';
+        const normLines = wrapText(ctx, slide.normal, textW);
+        const lh2 = 48;
+        normLines.forEach(line => { ctx.fillText(line, textX, y); y += lh2; });
+      }
+    }
+
+    // arrow "next"
+    if(state.showArrow && index < total-1){
+      ctx.strokeStyle = textColor;
+      ctx.lineWidth = 4;
+      ctx.lineCap = 'round';
+      const ax = W-70, ay = H/2;
+      ctx.beginPath();
+      ctx.moveTo(ax-14, ay-16);
+      ctx.lineTo(ax, ay);
+      ctx.lineTo(ax-14, ay+16);
+      ctx.stroke();
+    }
+
+    // share/save icons (bottom, simple glyphs)
+    if(state.showIcons){
+      ctx.strokeStyle = textColor;
+      ctx.fillStyle = textColor;
+      ctx.lineWidth = 3;
+      const iy2 = H-150;
+      // heart-ish / share icon (simplified paper-plane)
+      ctx.beginPath();
+      ctx.moveTo(pad, iy2);
+      ctx.lineTo(pad+34, iy2+12);
+      ctx.lineTo(pad, iy2+24);
+      ctx.lineTo(pad+8, iy2+12);
+      ctx.closePath();
+      ctx.fill();
+      // save icon (bookmark)
+      const bx = pad+60;
+      ctx.beginPath();
+      ctx.moveTo(bx, iy2-6);
+      ctx.lineTo(bx+22, iy2-6);
+      ctx.lineTo(bx+22, iy2+26);
+      ctx.lineTo(bx+11, iy2+16);
+      ctx.lineTo(bx, iy2+26);
+      ctx.closePath();
+      ctx.stroke();
+    }
+  }
+
+  // ---------- render pipeline ----------
+  let currentSlides = [];
+
+  function render(){
+    currentSlides = parseSlides(state.text);
+    slideCount.textContent = currentSlides.length;
+
+    if(currentSlides.length === 0){
+      stripWrap.innerHTML = '<div class="empty-state">Загрузи фон и вставь текст — слайды появятся здесь</div>';
+      downloadBtn.disabled = true;
+      return;
+    }
+
+    stripWrap.innerHTML = '';
+    const strip = document.createElement('div');
+    strip.className = 'strip';
+    currentSlides.forEach((slide, i) => {
+      const canvas = document.createElement('canvas');
+      drawSlide(canvas, slide, i, currentSlides.length);
+      strip.appendChild(canvas);
+    });
+    stripWrap.appendChild(strip);
+    downloadBtn.disabled = false;
+  }
+
+  // ---------- ZIP export ----------
+  downloadBtn.addEventListener('click', async () => {
+    if(currentSlides.length === 0) return;
+    downloadBtn.textContent = 'Собираю...';
+    downloadBtn.disabled = true;
+
+    const zip = new JSZip();
+    for(let i=0; i<currentSlides.length; i++){
+      const canvas = document.createElement('canvas');
+      drawSlide(canvas, currentSlides[i], i, currentSlides.length);
+      const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+      const num = String(i+1).padStart(2,'0');
+      zip.file(`slide_${num}.png`, blob);
+    }
+    const content = await zip.generateAsync({type:'blob'});
+    const url = URL.createObjectURL(content);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'karusel.zip';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+
+    downloadBtn.textContent = 'Скачать ZIP';
+    downloadBtn.disabled = false;
+  });
+
+  // ---------- init ----------
+  loadSettings();
+  nickInput.value = state.nick || '';
+  facePosBtns.forEach(b => b.classList.toggle('active', b.dataset.val === state.facePos));
+  showNick.checked = state.showNick;
+  showLines.checked = state.showLines;
+  showIcons.checked = state.showIcons;
+  showArrow.checked = state.showArrow;
+  showCounter.checked = state.showCounter;
+  dim.value = state.dim; dimVal.textContent = state.dim + '%';
+  lineColor.value = state.lineColor;
+  lineLen.value = state.lineLen; lineLenVal.textContent = state.lineLen + '%';
+  postText.value = state.text || '';
+
+  render();
+})();
+</script>
+
+</body>
+</html>
