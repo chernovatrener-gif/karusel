@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Конструктор карусели</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <style>
   :root{
     --bg: #f7f6f3;
@@ -324,8 +323,9 @@
       <div class="empty-state">Загрузи фон и вставь текст — слайды появятся здесь</div>
     </div>
     <div class="actions">
-      <button class="primary" id="downloadBtn" disabled>Скачать ZIP</button>
+      <button class="primary" id="downloadBtn" disabled>Сохранить слайды</button>
     </div>
+    <div class="hint" style="margin-top:8px">На телефоне картинки скачаются в «Файлы» — оттуда выдели все и «Сохранить изображения», они попадут в галерею</div>
   </div>
 
 </div>
@@ -702,31 +702,32 @@
     downloadBtn.disabled = false;
   }
 
-  // ---------- ZIP export ----------
+  // ---------- save slides as separate PNG downloads ----------
+  function delay(ms){ return new Promise(res => setTimeout(res, ms)); }
+
   downloadBtn.addEventListener('click', async () => {
     if(currentSlides.length === 0) return;
-    downloadBtn.textContent = 'Собираю...';
     downloadBtn.disabled = true;
 
-    const zip = new JSZip();
     for(let i=0; i<currentSlides.length; i++){
+      downloadBtn.textContent = `Сохраняю ${i+1}/${currentSlides.length}...`;
       const canvas = document.createElement('canvas');
       drawSlide(canvas, currentSlides[i], i, currentSlides.length);
       const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
       const num = String(i+1).padStart(2,'0');
-      zip.file(`slide_${num}.png`, blob);
+      a.download = `slide_${num}.png`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      // give the browser a moment to start each download before triggering the next
+      await delay(350);
+      URL.revokeObjectURL(url);
     }
-    const content = await zip.generateAsync({type:'blob'});
-    const url = URL.createObjectURL(content);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'karusel.zip';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
 
-    downloadBtn.textContent = 'Скачать ZIP';
+    downloadBtn.textContent = 'Сохранить слайды';
     downloadBtn.disabled = false;
   });
 
