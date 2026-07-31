@@ -539,128 +539,139 @@
       ctx.fillRect(0,0,W,H);
     }
 
-    const pad = 64;
-    const textColor = '#ffffff';
+    const topY = 80;      // baseline for nick row
+    const lineY = 110;    // rule under the nick
+    const bottomLineY = H - 150;
+    const bottomRowY = H - 90; // icons row
 
-    // face-avoid text column
-    let textX = pad, textW = W - pad*2;
-    if(state.facePos === 'right'){ textW = W*0.58 - pad; textX = pad; }
-    else if(state.facePos === 'left'){ textW = W*0.58 - pad; textX = W - textW - pad; }
-
-    // top line
+    // nick (top-left, uppercase, letter-spaced) + short rule under it
+    if(state.showNick && state.nick){
+      ctx.fillStyle = textColor;
+      ctx.font = '700 30px Arial, sans-serif';
+      ctx.textBaseline = 'alphabetic';
+      const spaced = state.nick.toUpperCase().split('').join('\u2009');
+      ctx.fillText(spaced, pad, topY);
+    }
     if(state.showLines){
       ctx.strokeStyle = state.lineColor;
       ctx.lineWidth = 3;
-      let lineW = W * (state.lineLen/100);
-      let lx = pad;
-      if(state.facePos === 'left'){ lx = W - pad - lineW; }
+      const lineW = W * (state.lineLen/100) * 0.55; // short rule, sits under nick text only
       ctx.beginPath();
-      ctx.moveTo(lx, 90);
-      ctx.lineTo(lx + lineW, 90);
-      ctx.stroke();
-
-      // bottom line full width
-      ctx.beginPath();
-      ctx.moveTo(pad, H-90);
-      ctx.lineTo(W-pad, H-90);
+      ctx.moveTo(pad, lineY);
+      ctx.lineTo(pad + lineW, lineY);
       ctx.stroke();
     }
 
-    // nick
-    if(state.showNick && state.nick){
-      ctx.fillStyle = textColor;
-      ctx.font = '600 30px Arial, sans-serif';
-      ctx.textBaseline = 'alphabetic';
-      let nx = pad;
-      if(state.facePos === 'left'){
-        ctx.textAlign = 'right';
-        nx = W - pad;
-      } else {
-        ctx.textAlign = 'left';
-      }
-      ctx.fillText(state.nick, nx, 60);
-      ctx.textAlign = 'left';
+    // bottom full-width rule, above the icon row
+    if(state.showLines){
+      ctx.strokeStyle = state.lineColor;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(pad, bottomLineY);
+      ctx.lineTo(W-pad, bottomLineY);
+      ctx.stroke();
     }
 
-    // counter
+    // counter (bottom-left, under the rule)
     if(state.showCounter){
       ctx.fillStyle = textColor;
-      ctx.font = '500 26px Arial, sans-serif';
-      ctx.textAlign = 'right';
-      ctx.fillText(`${index+1}/${total}`, W-pad, 60);
+      ctx.globalAlpha = 0.85;
+      ctx.font = '500 30px Arial, sans-serif';
       ctx.textAlign = 'left';
+      ctx.fillText(`${index+1}/${total}`, pad, bottomRowY + 34);
+      ctx.globalAlpha = 1;
     }
+
+    // face-avoid text column — figure sits in the outer ~34% of the frame,
+    // so the text column only needs to give way to that, not to half the frame
+    let textX = pad, textW = W - pad*2;
+    if(state.facePos === 'right'){ textW = W*0.74 - pad; textX = pad; }
+    else if(state.facePos === 'left'){ textW = W*0.74 - pad; textX = W - textW - pad; }
 
     // main text block
     ctx.fillStyle = textColor;
-    let y = H*0.38;
+    let y = H*0.40;
 
     if(slide.type === 'cover'){
-      ctx.font = '800 62px Arial, sans-serif';
-      const lines = wrapText(ctx, slide.title, textW);
-      const lh = 74;
-      y = H/2 - (lines.length*lh)/2;
-      lines.forEach(line => { ctx.fillText(line, textX, y); y += lh; });
-    } else {
-      // number
-      if(slide.num){
-        ctx.font = '700 40px Arial, sans-serif';
-        ctx.fillStyle = state.dim > 30 ? textColor : textColor;
-        ctx.globalAlpha = 0.55;
-        ctx.fillText(String(slide.num).padStart(2,'0'), textX, y - 60);
-        ctx.globalAlpha = 1;
+      const isCentered = state.facePos === 'none';
+      ctx.font = '900 60px Arial, sans-serif';
+      const coverW = isCentered ? W - pad*2 : textW;
+      const coverX = isCentered ? pad : textX;
+      const lines = wrapText(ctx, slide.title, coverW);
+      const lh = 70;
+      y = H/2 - (lines.length*lh)/2 + lh*0.7;
+      if(isCentered){
+        ctx.textAlign = 'center';
+        lines.forEach(line => { ctx.fillText(line, W/2, y); y += lh; });
+        ctx.textAlign = 'left';
+      } else {
+        lines.forEach(line => { ctx.fillText(line, coverX, y); y += lh; });
       }
-      // bold sentence
-      ctx.font = '700 46px Arial, sans-serif';
-      const boldLines = wrapText(ctx, slide.bold, textW);
-      const lh1 = 58;
+    } else if(slide.type === 'question'){
+      // final slide: centered question, no number, no body text
+      ctx.font = '900 54px Arial, sans-serif';
+      ctx.textAlign = 'center';
+      const lines = wrapText(ctx, slide.bold, W - pad*2 - 80);
+      const lh = 66;
+      y = H/2 - (lines.length*lh)/2 + lh*0.7;
+      lines.forEach(line => { ctx.fillText(line, W/2, y); y += lh; });
+      ctx.textAlign = 'left';
+    } else {
+      // bold sentence, with the number folded into the same line
+      ctx.font = '900 48px Arial, sans-serif';
+      const prefix = slide.num ? `${slide.num}. ` : '';
+      const boldLines = wrapText(ctx, prefix + slide.bold, textW);
+      const lh1 = 56;
       boldLines.forEach(line => { ctx.fillText(line, textX, y); y += lh1; });
 
       // normal text
       if(slide.normal){
-        y += 14;
-        ctx.font = '400 36px Arial, sans-serif';
+        y += 16;
+        ctx.font = '400 34px Arial, sans-serif';
         const normLines = wrapText(ctx, slide.normal, textW);
-        const lh2 = 48;
+        const lh2 = 46;
         normLines.forEach(line => { ctx.fillText(line, textX, y); y += lh2; });
       }
     }
 
-    // arrow "next"
+    // arrow "next" (bottom-right, next to the icon row)
     if(state.showArrow && index < total-1){
       ctx.strokeStyle = textColor;
       ctx.lineWidth = 4;
       ctx.lineCap = 'round';
-      const ax = W-70, ay = H/2;
-      ctx.beginPath();
-      ctx.moveTo(ax-14, ay-16);
-      ctx.lineTo(ax, ay);
-      ctx.lineTo(ax-14, ay+16);
-      ctx.stroke();
+      ctx.lineJoin = 'round';
+      const ax = W - pad - 34, ay = bottomRowY + 20;
+      [0, 16].forEach(off => {
+        ctx.beginPath();
+        ctx.moveTo(ax - 16 + off, ay - 16);
+        ctx.lineTo(ax + off, ay);
+        ctx.lineTo(ax - 16 + off, ay + 16);
+        ctx.stroke();
+      });
     }
 
-    // share/save icons (bottom, simple glyphs)
+    // share/save icons (bottom row, left = share, right = save)
     if(state.showIcons){
       ctx.strokeStyle = textColor;
       ctx.fillStyle = textColor;
       ctx.lineWidth = 3;
-      const iy2 = H-150;
-      // heart-ish / share icon (simplified paper-plane)
+      const iy2 = bottomRowY + 70;
+      // share (paper plane outline)
       ctx.beginPath();
       ctx.moveTo(pad, iy2);
-      ctx.lineTo(pad+34, iy2+12);
-      ctx.lineTo(pad, iy2+24);
-      ctx.lineTo(pad+8, iy2+12);
+      ctx.lineTo(pad+46, iy2+18);
+      ctx.lineTo(pad+6, iy2+18);
+      ctx.lineTo(pad, iy2+38);
       ctx.closePath();
-      ctx.fill();
-      // save icon (bookmark)
-      const bx = pad+60;
+      ctx.stroke();
+      // save (bookmark), bottom-right, own column from the arrow
+      const bx = W - pad - 30;
       ctx.beginPath();
-      ctx.moveTo(bx, iy2-6);
-      ctx.lineTo(bx+22, iy2-6);
-      ctx.lineTo(bx+22, iy2+26);
-      ctx.lineTo(bx+11, iy2+16);
-      ctx.lineTo(bx, iy2+26);
+      ctx.moveTo(bx-24, iy2-8);
+      ctx.lineTo(bx, iy2-8);
+      ctx.lineTo(bx, iy2+32);
+      ctx.lineTo(bx-12, iy2+22);
+      ctx.lineTo(bx-24, iy2+32);
       ctx.closePath();
       ctx.stroke();
     }
