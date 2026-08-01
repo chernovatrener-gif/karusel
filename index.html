@@ -518,6 +518,17 @@
   }
 
   // ---------- canvas rendering ----------
+  function fillTextBold(ctx, text, x, y){
+    // stroke first (thin outline in the same color) then fill — visually thickens
+    // the glyphs beyond what font-weight:900 alone gives on canvas
+    ctx.lineJoin = 'round';
+    ctx.miterLimit = 2;
+    ctx.lineWidth = 1.6;
+    ctx.strokeStyle = ctx.fillStyle;
+    ctx.strokeText(text, x, y);
+    ctx.fillText(text, x, y);
+  }
+
   function wrapText(ctx, text, maxWidth){
     if(!text) return [];
     const words = text.split(/\s+/);
@@ -562,9 +573,9 @@
     const textColor = '#ffffff';
     const topY = 80;      // baseline for nick row
     const lineY = 110;    // rule under the nick
-    const bottomLineY = H - 170;
-    const bottomRowY = H - 120; // counter / arrow baseline
-    const iconsY = H - 60;      // icons row, kept safely above the bottom edge
+    const bottomLineY = H - 175;
+    const bottomRowY = H - 125; // counter / arrow row
+    const iconsY = H - 55;      // icons row, kept safely above the bottom edge
 
     // nick (top-left, uppercase, letter-spaced) + short rule under it
     if(state.showNick && state.nick){
@@ -594,14 +605,28 @@
       ctx.stroke();
     }
 
-    // counter (bottom-left, under the rule)
+    // counter (bottom-left) + arrow "next" (bottom-right) — same row
     if(state.showCounter){
       ctx.fillStyle = textColor;
       ctx.globalAlpha = 0.85;
       ctx.font = '500 30px Arial, sans-serif';
       ctx.textAlign = 'left';
-      ctx.fillText(`${index+1}/${total}`, pad, bottomRowY + 34);
+      ctx.fillText(`${index+1}/${total}`, pad, bottomRowY + 8);
       ctx.globalAlpha = 1;
+    }
+    if(state.showArrow && index < total-1){
+      ctx.strokeStyle = textColor;
+      ctx.lineWidth = 4;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      const ax = W - pad - 14, ay = bottomRowY - 6;
+      [0, 14].forEach(off => {
+        ctx.beginPath();
+        ctx.moveTo(ax - 14 + off, ay - 14);
+        ctx.lineTo(ax + off, ay);
+        ctx.lineTo(ax - 14 + off, ay + 14);
+        ctx.stroke();
+      });
     }
 
     // face-avoid text column — figure sits in the outer ~34% of the frame,
@@ -624,10 +649,10 @@
       y = H/2 - (lines.length*lh)/2 + lh*0.7;
       if(isCentered){
         ctx.textAlign = 'center';
-        lines.forEach(line => { ctx.fillText(line, W/2, y); y += lh; });
+        lines.forEach(line => { fillTextBold(ctx, line, W/2, y); y += lh; });
         ctx.textAlign = 'left';
       } else {
-        lines.forEach(line => { ctx.fillText(line, coverX, y); y += lh; });
+        lines.forEach(line => { fillTextBold(ctx, line, coverX, y); y += lh; });
       }
     } else if(slide.type === 'question'){
       // final slide: centered question, no number, no body text
@@ -636,7 +661,7 @@
       const lines = wrapText(ctx, slide.bold, W - pad*2 - 80);
       const lh = 66;
       y = H/2 - (lines.length*lh)/2 + lh*0.7;
-      lines.forEach(line => { ctx.fillText(line, W/2, y); y += lh; });
+      lines.forEach(line => { fillTextBold(ctx, line, W/2, y); y += lh; });
       ctx.textAlign = 'left';
     } else {
       // bold sentence, with the number folded into the same line
@@ -644,7 +669,7 @@
       const prefix = slide.num ? `${slide.num}. ` : '';
       const boldLines = wrapText(ctx, prefix + slide.bold, textW);
       const lh1 = 56;
-      boldLines.forEach(line => { ctx.fillText(line, textX, y); y += lh1; });
+      boldLines.forEach(line => { fillTextBold(ctx, line, textX, y); y += lh1; });
 
       // normal text
       if(slide.normal){
@@ -656,23 +681,7 @@
       }
     }
 
-    // arrow "next" (bottom-right, above the icon row)
-    if(state.showArrow && index < total-1){
-      ctx.strokeStyle = textColor;
-      ctx.lineWidth = 4;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      const ax = W - pad - 34, ay = bottomRowY + 20;
-      [0, 16].forEach(off => {
-        ctx.beginPath();
-        ctx.moveTo(ax - 16 + off, ay - 16);
-        ctx.lineTo(ax + off, ay);
-        ctx.lineTo(ax - 16 + off, ay + 16);
-        ctx.stroke();
-      });
-    }
-
-    // share/save icons (bottom row, kept safely inside the canvas)
+    // share/save icons (own row, well below the counter/arrow row)
     if(state.showIcons){
       ctx.strokeStyle = textColor;
       ctx.fillStyle = textColor;
