@@ -573,9 +573,9 @@
     const textColor = '#ffffff';
     const topY = 80;      // baseline for nick row
     const lineY = 110;    // rule under the nick
-    const bottomLineY = H - 175;
-    const bottomRowY = H - 125; // counter / arrow row
-    const iconsY = H - 55;      // icons row, kept safely above the bottom edge
+    const bottomRowY = H - 200; // counter / arrow row — above the rule
+    const bottomLineY = H - 150; // full-width rule
+    const iconsY = H - 90;      // share/save icons — below the rule
 
     // nick (top-left, uppercase, letter-spaced) + short rule under it
     if(state.showNick && state.nick){
