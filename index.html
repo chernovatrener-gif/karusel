@@ -562,8 +562,9 @@
     const textColor = '#ffffff';
     const topY = 80;      // baseline for nick row
     const lineY = 110;    // rule under the nick
-    const bottomLineY = H - 150;
-    const bottomRowY = H - 90; // icons row
+    const bottomLineY = H - 170;
+    const bottomRowY = H - 120; // counter / arrow baseline
+    const iconsY = H - 60;      // icons row, kept safely above the bottom edge
 
     // nick (top-left, uppercase, letter-spaced) + short rule under it
     if(state.showNick && state.nick){
@@ -611,7 +612,7 @@
 
     // main text block
     ctx.fillStyle = textColor;
-    let y = H*0.40;
+    let y = H*0.36;
 
     if(slide.type === 'cover'){
       const isCentered = state.facePos === 'none';
@@ -655,7 +656,7 @@
       }
     }
 
-    // arrow "next" (bottom-right, next to the icon row)
+    // arrow "next" (bottom-right, above the icon row)
     if(state.showArrow && index < total-1){
       ctx.strokeStyle = textColor;
       ctx.lineWidth = 4;
@@ -671,28 +672,28 @@
       });
     }
 
-    // share/save icons (bottom row, left = share, right = save)
+    // share/save icons (bottom row, kept safely inside the canvas)
     if(state.showIcons){
       ctx.strokeStyle = textColor;
       ctx.fillStyle = textColor;
       ctx.lineWidth = 3;
-      const iy2 = bottomRowY + 70;
+      const iy2 = iconsY;
       // share (paper plane outline)
       ctx.beginPath();
-      ctx.moveTo(pad, iy2);
-      ctx.lineTo(pad+46, iy2+18);
-      ctx.lineTo(pad+6, iy2+18);
-      ctx.lineTo(pad, iy2+38);
+      ctx.moveTo(pad, iy2-19);
+      ctx.lineTo(pad+46, iy2-1);
+      ctx.lineTo(pad+6, iy2-1);
+      ctx.lineTo(pad, iy2+19);
       ctx.closePath();
       ctx.stroke();
       // save (bookmark), bottom-right, own column from the arrow
       const bx = W - pad - 30;
       ctx.beginPath();
-      ctx.moveTo(bx-24, iy2-8);
-      ctx.lineTo(bx, iy2-8);
-      ctx.lineTo(bx, iy2+32);
-      ctx.lineTo(bx-12, iy2+22);
-      ctx.lineTo(bx-24, iy2+32);
+      ctx.moveTo(bx-24, iy2-27);
+      ctx.lineTo(bx, iy2-27);
+      ctx.lineTo(bx, iy2+13);
+      ctx.lineTo(bx-12, iy2+3);
+      ctx.lineTo(bx-24, iy2+13);
       ctx.closePath();
       ctx.stroke();
     }
