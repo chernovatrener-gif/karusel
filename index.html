@@ -242,6 +242,8 @@
     font-size: 13px;
     cursor: pointer;
     font-family: inherit;
+    flex: 0 0 auto;
+    white-space: nowrap;
   }
   footer{
     text-align:center;
@@ -338,9 +340,10 @@
       <div class="empty-state">Загрузи фон и вставь текст — слайды появятся здесь</div>
     </div>
     <div class="actions">
-      <button class="primary" id="downloadBtn" disabled>Сохранить слайды</button>
+      <button class="primary" id="shareBtn" disabled>Поделиться</button>
+      <button class="secondary" id="downloadBtn" disabled>Скачать</button>
     </div>
-    <div class="hint" style="margin-top:8px">На телефоне картинки скачаются в «Файлы» — оттуда выдели все и «Сохранить изображения», они попадут в галерею</div>
+    <div class="hint" style="margin-top:8px">На телефоне «Поделиться» откроет меню iPhone — там «Сохранить N изображений» кладёт слайды прямо в галерею</div>
   </div>
 
 </div>
@@ -396,6 +399,7 @@
   const demoBtn = document.getElementById('demoBtn');
   const stripWrap = document.getElementById('stripWrap');
   const slideCount = document.getElementById('slideCount');
+  const shareBtn = document.getElementById('shareBtn');
   const downloadBtn = document.getElementById('downloadBtn');
 
   const DEMO = `5 признаков, что ты живёшь на автомате
@@ -704,6 +708,7 @@
     if(currentSlides.length === 0){
       stripWrap.innerHTML = '<div class="empty-state">Загрузи фон и вставь текст — слайды появятся здесь</div>';
       downloadBtn.disabled = true;
+      shareBtn.disabled = true;
       return;
     }
 
@@ -718,15 +723,52 @@
       });
       stripWrap.appendChild(strip);
       downloadBtn.disabled = false;
+      shareBtn.disabled = !navigator.share || !navigator.canShare;
     } catch(err) {
       stripWrap.innerHTML = '<div class="empty-state">Не получилось отрисовать превью: ' + (err && err.message ? err.message : err) + '</div>';
       downloadBtn.disabled = true;
+      shareBtn.disabled = true;
     }
   }
 
-  // ---------- save slides as separate PNG downloads ----------
+  // ---------- render all slides to PNG blobs ----------
   function delay(ms){ return new Promise(res => setTimeout(res, ms)); }
 
+  async function renderAllSlides(){
+    const files = [];
+    for(let i=0; i<currentSlides.length; i++){
+      const canvas = document.createElement('canvas');
+      drawSlide(canvas, currentSlides[i], i, currentSlides.length);
+      const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+      const num = String(i+1).padStart(2,'0');
+      files.push(new File([blob], `slide_${num}.png`, {type:'image/png'}));
+    }
+    return files;
+  }
+
+  // ---------- share (opens iOS/Android share sheet -> "Save Images" goes straight to gallery) ----------
+  shareBtn.addEventListener('click', async () => {
+    if(currentSlides.length === 0) return;
+    shareBtn.disabled = true;
+    shareBtn.textContent = 'Готовлю...';
+    try {
+      const files = await renderAllSlides();
+      if(navigator.canShare && navigator.canShare({files})){
+        await navigator.share({files, title: 'Карусель'});
+      } else {
+        alert('Поделиться файлами не поддерживается в этом браузере — используй кнопку «Скачать».');
+      }
+    } catch(err){
+      // AbortError = user cancelled the share sheet, not a real error
+      if(err && err.name !== 'AbortError'){
+        alert('Не получилось поделиться: ' + (err && err.message ? err.message : err));
+      }
+    }
+    shareBtn.textContent = 'Поделиться';
+    shareBtn.disabled = false;
+  });
+
+  // ---------- download (fallback for desktop / unsupported browsers) ----------
   downloadBtn.addEventListener('click', async () => {
     if(currentSlides.length === 0) return;
     downloadBtn.disabled = true;
@@ -749,7 +791,7 @@
       URL.revokeObjectURL(url);
     }
 
-    downloadBtn.textContent = 'Сохранить слайды';
+    downloadBtn.textContent = 'Скачать';
     downloadBtn.disabled = false;
   });
 
