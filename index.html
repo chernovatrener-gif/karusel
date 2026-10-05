@@ -80,6 +80,9 @@
     color: var(--muted);
     margin-top: 4px;
   }
+  body.style-plashka .classic-only{
+    display: none !important;
+  }
   input[type=text], textarea{
     width:100%;
     border: 1px solid var(--line);
@@ -113,6 +116,57 @@
     max-height: 160px;
     border-radius: 6px;
     margin-bottom: 8px;
+  }
+  .thumbs{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-top:10px;
+  }
+  .thumb{
+    position:relative;
+    width:72px;
+    height:90px;
+    border-radius:8px;
+    overflow:hidden;
+    border:2px solid var(--line);
+    cursor:pointer;
+    flex-shrink:0;
+  }
+  .thumb.first{
+    border-color: var(--accent);
+  }
+  .thumb img{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    display:block;
+  }
+  .thumb .num{
+    position:absolute;
+    top:2px;
+    left:2px;
+    background:rgba(0,0,0,.6);
+    color:#fff;
+    font-size:10px;
+    padding:1px 5px;
+    border-radius:5px;
+  }
+  .thumb .remove{
+    position:absolute;
+    top:2px;
+    right:2px;
+    background:rgba(0,0,0,.6);
+    color:#fff;
+    width:18px;
+    height:18px;
+    border-radius:50%;
+    border:none;
+    font-size:12px;
+    line-height:18px;
+    text-align:center;
+    cursor:pointer;
+    padding:0;
   }
   .seg{
     display:flex;
@@ -265,12 +319,24 @@
   <!-- LEFT: controls -->
   <div class="panel" id="controls">
 
+    <h2>Стиль карусели</h2>
+    <div class="field">
+      <div class="seg" id="styleSeg">
+        <button data-val="classic" class="active">Классика</button>
+        <button data-val="plashka">Плашка</button>
+      </div>
+      <div class="hint">Классика — текст прямо на фото, линии и иконки. Плашка — текст на тёмной плашке снизу, точки-индикатор. Фото в «Плашке» не затемняется.</div>
+    </div>
+
     <h2>Фон</h2>
     <div class="field">
       <div class="dropzone" id="dropzone">
-        <div id="dzContent">Перетащи сюда фото или нажми, чтобы выбрать<br><span class="hint">лучше вертикальное, человек сбоку</span></div>
+        <div id="dzContent">Перетащи сюда фото или нажми, чтобы выбрать<br><span class="hint">можно сразу несколько — лучше вертикальные, человек сбоку</span></div>
       </div>
-      <input type="file" id="fileInput" accept="image/*" style="display:none">
+      <input type="file" id="fileInput" accept="image/*" multiple style="display:none">
+      <div class="thumbs" id="thumbs"></div>
+      <button class="secondary" id="shuffleBtn" style="width:100%; margin-top:8px; display:none">🎲 Перемешать фото по слайдам</button>
+      <div class="hint" id="photoHint" style="display:none"></div>
     </div>
 
     <div class="field">
@@ -291,13 +357,13 @@
     <h2>Элементы рамки</h2>
     <div class="field checks">
       <label><input type="checkbox" id="showNick" checked> ник</label>
-      <label><input type="checkbox" id="showLines" checked> линии</label>
+      <label class="classic-only"><input type="checkbox" id="showLines" checked> линии</label>
       <label><input type="checkbox" id="showIcons" checked> иконки share/save</label>
       <label><input type="checkbox" id="showArrow" checked> стрелка «дальше»</label>
-      <label><input type="checkbox" id="showCounter" checked> счётчик N/total</label>
+      <label><input type="checkbox" id="showCounter" checked> <span id="counterLabel">счётчик N/total</span></label>
     </div>
 
-    <div class="field row">
+    <div class="field row classic-only" id="dimRow">
       <div>
         <label>Затемнение фона <span class="rangeval" id="dimVal">35%</span></label>
         <input type="range" id="dim" min="0" max="80" value="35">
@@ -307,16 +373,25 @@
 
     <div class="field row">
       <div>
-        <label>Цвет линий</label>
+        <label id="lineColorLabel">Цвет линий</label>
         <input type="color" id="lineColor" value="#ffffff">
       </div>
-      <div>
+      <div class="classic-only" id="lineLenField">
         <label>Длина верхней линии <span class="rangeval" id="lineLenVal">70%</span></label>
         <input type="range" id="lineLen" min="20" max="100" value="70">
       </div>
     </div>
 
-    <h2>Текст поста</h2>
+    <div class="field">
+      <label>Шрифт</label>
+      <select id="fontSelect" style="width:100%; border:1px solid var(--line); border-radius:8px; padding:10px 12px; font-size:14px; font-family:inherit; background:#fdfdfc;"></select>
+      <div class="hint">Меняет текст слайдов. Ник и счётчик остаются фирменным шрифтом. Новый шрифт подгружается из интернета пару секунд.</div>
+    </div>
+
+    <h2 style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+      <span>Текст поста</span>
+      <button class="secondary" id="clearTextBtn" style="padding:6px 12px; font-size:12px; text-transform:none; letter-spacing:0; font-weight:600;">Очистить</button>
+    </h2>
     <div class="field">
       <label>Заголовок сверху, дальше блоки через пустую строку</label>
       <textarea id="postText" placeholder="Заголовок карусели
@@ -353,8 +428,32 @@
 <script>
 (function(){
   const W = 1080, H = 1350;
+  const FONTS = {
+    montserrat: { label: 'Montserrat — фирменный', css: "'Montserrat', Arial, sans-serif", google: 'Montserrat:wght@400;600;700;900' },
+    inter:      { label: 'Inter', css: "'Inter', Arial, sans-serif", google: 'Inter:wght@400;600;700;900' },
+    manrope:    { label: 'Manrope', css: "'Manrope', Arial, sans-serif", google: 'Manrope:wght@400;600;700;800' },
+    rubik:      { label: 'Rubik', css: "'Rubik', Arial, sans-serif", google: 'Rubik:wght@400;600;700;900' },
+    golos:      { label: 'Golos Text', css: "'Golos Text', Arial, sans-serif", google: 'Golos+Text:wght@400;600;700;900' },
+    playfair:   { label: 'Playfair Display — с засечками', css: "'Playfair Display', Georgia, serif", google: 'Playfair+Display:wght@400;600;700;900' },
+    unbounded:  { label: 'Unbounded — широкий', css: "'Unbounded', Arial, sans-serif", google: 'Unbounded:wght@400;600;700;900' }
+  };
+  const loadedFonts = new Set();
+  function ensureFontLoaded(key){
+    if(loadedFonts.has(key)) return;
+    const f = FONTS[key];
+    if(!f) return;
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = `https://fonts.googleapis.com/css2?family=${f.google}&display=swap`;
+    document.head.appendChild(link);
+    loadedFonts.add(key);
+  }
+
   const state = {
-    bg: null, // Image object
+    style: 'classic', // 'classic' | 'plashka'
+    font: 'montserrat',
+    photos: [], // array of { img: Image, dataUrl: string }
+    slidePhotoMap: {}, // slideIndex -> photos array index (explicit per-slide pick)
     nick: '',
     facePos: 'right',
     showNick: true, showLines: true, showIcons: true, showArrow: true, showCounter: true,
@@ -364,10 +463,20 @@
     text: ''
   };
 
+  // returns the Image to use for a given slide index, honoring explicit per-slide picks,
+  // falling back to round-robin across uploaded photos
+  function photoForSlide(i){
+    if(state.photos.length === 0) return null;
+    const explicit = state.slidePhotoMap[i];
+    if(explicit != null && state.photos[explicit]) return state.photos[explicit].img;
+    return state.photos[i % state.photos.length].img;
+  }
+
   // ---------- persistence ----------
   function saveSettings(){
     const s = {...state};
-    delete s.bg; // images not persisted (keep it simple/local)
+    delete s.photos; // images not persisted (keep it simple/local)
+    delete s.slidePhotoMap;
     localStorage.setItem('karusel_settings', JSON.stringify(s));
   }
   function loadSettings(){
@@ -375,14 +484,22 @@
       const raw = localStorage.getItem('karusel_settings');
       if(!raw) return;
       const s = JSON.parse(raw);
+      delete s.photos; // never trust persisted images — Image objects don't survive JSON
+      delete s.slidePhotoMap;
+      delete s.bg; // legacy key from the single-photo version
       Object.assign(state, s);
+      if(!FONTS[state.font]) state.font = 'montserrat';
     }catch(e){}
   }
 
   // ---------- DOM refs ----------
+  const styleSegBtns = document.querySelectorAll('#styleSeg button');
   const dropzone = document.getElementById('dropzone');
   const dzContent = document.getElementById('dzContent');
   const fileInput = document.getElementById('fileInput');
+  const thumbs = document.getElementById('thumbs');
+  const shuffleBtn = document.getElementById('shuffleBtn');
+  const photoHint = document.getElementById('photoHint');
   const nickInput = document.getElementById('nick');
   const facePosBtns = document.querySelectorAll('#facePos button');
   const showNick = document.getElementById('showNick');
@@ -394,9 +511,11 @@
   const dimVal = document.getElementById('dimVal');
   const lineColor = document.getElementById('lineColor');
   const lineLen = document.getElementById('lineLen');
+  const fontSelect = document.getElementById('fontSelect');
   const lineLenVal = document.getElementById('lineLenVal');
   const postText = document.getElementById('postText');
   const demoBtn = document.getElementById('demoBtn');
+  const clearTextBtn = document.getElementById('clearTextBtn');
   const stripWrap = document.getElementById('stripWrap');
   const slideCount = document.getElementById('slideCount');
   const shareBtn = document.getElementById('shareBtn');
@@ -416,30 +535,105 @@
 
 Узнаёшь себя хоть в одном пункте?`;
 
-  // ---------- image load ----------
-  function handleFile(file){
-    if(!file || !file.type.startsWith('image/')) return;
-    const reader = new FileReader();
-    reader.onload = e => {
-      const img = new Image();
-      img.onload = () => {
-        state.bg = img;
-        dzContent.innerHTML = '';
-        const thumb = document.createElement('img');
-        thumb.src = e.target.result;
-        dzContent.appendChild(thumb);
-        const label = document.createElement('div');
-        label.textContent = 'Нажми, чтобы заменить фото';
-        dzContent.appendChild(label);
-        render();
+  // ---------- image load (multi-photo) ----------
+  function loadOneFile(file){
+    if(!file || !file.type.startsWith('image/')) return Promise.resolve(null);
+    return new Promise(resolve => {
+      const reader = new FileReader();
+      reader.onload = e => {
+        const img = new Image();
+        img.onload = () => resolve({ img, dataUrl: e.target.result });
+        img.onerror = () => resolve(null);
+        img.src = e.target.result;
       };
-      img.src = e.target.result;
-    };
-    reader.readAsDataURL(file);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(file);
+    });
   }
 
+  async function handleFiles(fileList){
+    const files = Array.from(fileList || []).filter(f => f.type.startsWith('image/'));
+    if(files.length === 0) return;
+    const loaded = await Promise.all(files.map(loadOneFile));
+    loaded.filter(Boolean).forEach(p => state.photos.push(p));
+    renderThumbs();
+    render();
+    saveSettings();
+  }
+
+  function renderThumbs(){
+    thumbs.innerHTML = '';
+    if(state.photos.length === 0){
+      dzContent.style.display = '';
+      shuffleBtn.style.display = 'none';
+      photoHint.style.display = 'none';
+      return;
+    }
+    dzContent.style.display = 'none';
+    shuffleBtn.style.display = state.photos.length > 1 ? '' : 'none';
+
+    state.photos.forEach((p, i) => {
+      const el = document.createElement('div');
+      el.className = 'thumb' + (i === 0 ? ' first' : '');
+      el.title = i === 0 ? 'Первое фото — используется, если слайдов больше фото' : 'Нажми, чтобы сделать первым';
+      const im = document.createElement('img');
+      im.src = p.dataUrl;
+      el.appendChild(im);
+      const num = document.createElement('span');
+      num.className = 'num';
+      num.textContent = i+1;
+      el.appendChild(num);
+      const rm = document.createElement('button');
+      rm.className = 'remove';
+      rm.textContent = '✕';
+      rm.addEventListener('click', ev => {
+        ev.stopPropagation();
+        state.photos.splice(i, 1);
+        state.slidePhotoMap = {}; // indices shifted, reset explicit picks
+        renderThumbs();
+        render();
+        saveSettings();
+      });
+      el.appendChild(rm);
+      el.addEventListener('click', () => {
+        if(i === 0) return;
+        const [moved] = state.photos.splice(i, 1);
+        state.photos.unshift(moved);
+        state.slidePhotoMap = {};
+        renderThumbs();
+        render();
+        saveSettings();
+      });
+      thumbs.appendChild(el);
+    });
+
+    photoHint.style.display = '';
+    if(currentSlides.length > state.photos.length && state.photos.length > 0){
+      photoHint.textContent = `Фото меньше, чем слайдов (${state.photos.length} из ${currentSlides.length}) — часть фото повторится по кругу`;
+    } else {
+      photoHint.textContent = `Фото: ${state.photos.length}. В «Классике» на всех слайдах стоит первое; в «Плашке» — по очереди`;
+    }
+  }
+
+  function shuffleArray(arr){
+    const a = arr.slice();
+    for(let i = a.length - 1; i > 0; i--){
+      const j = Math.floor(Math.random() * (i+1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  shuffleBtn.addEventListener('click', () => {
+    state.photos = shuffleArray(state.photos);
+    state.slidePhotoMap = {};
+    renderThumbs();
+    render();
+    saveSettings();
+  });
+
   dropzone.addEventListener('click', () => fileInput.click());
-  fileInput.addEventListener('change', e => handleFile(e.target.files[0]));
+  fileInput.addEventListener('change', e => handleFiles(e.target.files));
   ['dragenter','dragover'].forEach(ev => dropzone.addEventListener(ev, e => {
     e.preventDefault(); dropzone.classList.add('drag');
   }));
@@ -447,8 +641,8 @@
     e.preventDefault(); dropzone.classList.remove('drag');
   }));
   dropzone.addEventListener('drop', e => {
-    const file = e.dataTransfer.files[0];
-    handleFile(file);
+    e.preventDefault();
+    handleFiles(e.dataTransfer.files);
   });
 
   // ---------- controls wiring ----------
@@ -458,6 +652,27 @@
     facePosBtns.forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     state.facePos = btn.dataset.val;
+    render(); saveSettings();
+  }));
+
+  function applyStyleUI(){
+    document.body.classList.toggle('style-plashka', state.style === 'plashka');
+    const lineColorLabel = document.getElementById('lineColorLabel');
+    const counterLabel = document.getElementById('counterLabel');
+    if(state.style === 'plashka'){
+      lineColorLabel.textContent = 'Цвет акцента (активная точка)';
+      counterLabel.textContent = 'точки-индикатор';
+    } else {
+      lineColorLabel.textContent = 'Цвет линий';
+      counterLabel.textContent = 'счётчик N/total';
+    }
+  }
+
+  styleSegBtns.forEach(btn => btn.addEventListener('click', () => {
+    styleSegBtns.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.style = btn.dataset.val;
+    applyStyleUI();
     render(); saveSettings();
   }));
 
@@ -477,11 +692,31 @@
     render(); saveSettings();
   });
 
+  Object.keys(FONTS).forEach(key => {
+    const opt = document.createElement('option');
+    opt.value = key;
+    opt.textContent = FONTS[key].label;
+    fontSelect.appendChild(opt);
+  });
+  fontSelect.addEventListener('change', () => {
+    state.font = fontSelect.value;
+    ensureFontLoaded(state.font);
+    // give the browser a moment to apply the newly-loaded font before redrawing
+    setTimeout(render, 150);
+    saveSettings();
+  });
+
   postText.addEventListener('input', () => { state.text = postText.value; render(); saveSettings(); });
 
   demoBtn.addEventListener('click', () => {
     postText.value = DEMO;
     state.text = DEMO;
+    render(); saveSettings();
+  });
+
+  clearTextBtn.addEventListener('click', () => {
+    postText.value = '';
+    state.text = '';
     render(); saveSettings();
   });
 
@@ -518,6 +753,11 @@
   }
 
   // ---------- canvas rendering ----------
+  function slideFont(weight, size){
+    const f = FONTS[state.font] || FONTS.montserrat;
+    return `${weight} ${size}px ${f.css}`;
+  }
+
   function fillTextBold(ctx, text, x, y){
     // stroke first (thin outline in the same color) then fill — visually thickens
     // the glyphs beyond what font-weight:900 alone gives on canvas
@@ -548,12 +788,20 @@
   }
 
   function drawSlide(canvas, slide, index, total){
+    if(state.style === 'plashka'){
+      drawPlashkaSlide(canvas, slide, index, total);
+    } else {
+      drawClassicSlide(canvas, slide, index, total);
+    }
+  }
+
+  function drawClassicSlide(canvas, slide, index, total){
     canvas.width = W; canvas.height = H;
     const ctx = canvas.getContext('2d');
 
     // background
-    if(state.bg){
-      const img = state.bg;
+    const img = photoForSlide(index);
+    if(img){
       const scale = Math.max(W/img.width, H/img.height);
       const iw = img.width*scale, ih = img.height*scale;
       const ix = (W-iw)/2, iy = (H-ih)/2;
@@ -641,7 +889,7 @@
 
     if(slide.type === 'cover'){
       const isCentered = state.facePos === 'none';
-      ctx.font = '900 60px Arial, sans-serif';
+      ctx.font = slideFont(900, 60);
       const coverW = isCentered ? W - pad*2 : textW;
       const coverX = isCentered ? pad : textX;
       const lines = wrapText(ctx, slide.title, coverW);
@@ -656,7 +904,7 @@
       }
     } else if(slide.type === 'question'){
       // final slide: centered question, no number, no body text
-      ctx.font = '900 54px Arial, sans-serif';
+      ctx.font = slideFont(900, 54);
       ctx.textAlign = 'center';
       const lines = wrapText(ctx, slide.bold, W - pad*2 - 80);
       const lh = 66;
@@ -665,7 +913,7 @@
       ctx.textAlign = 'left';
     } else {
       // bold sentence, with the number folded into the same line
-      ctx.font = '900 48px Arial, sans-serif';
+      ctx.font = slideFont(900, 48);
       const prefix = slide.num ? `${slide.num}. ` : '';
       const boldLines = wrapText(ctx, prefix + slide.bold, textW);
       const lh1 = 56;
@@ -674,7 +922,7 @@
       // normal text
       if(slide.normal){
         y += 16;
-        ctx.font = '400 34px Arial, sans-serif';
+        ctx.font = slideFont(400, 34);
         const normLines = wrapText(ctx, slide.normal, textW);
         const lh2 = 46;
         normLines.forEach(line => { ctx.fillText(line, textX, y); y += lh2; });
@@ -705,6 +953,154 @@
       ctx.lineTo(bx-24, iy2+13);
       ctx.closePath();
       ctx.stroke();
+    }
+  }
+
+  function drawPlashkaSlide(canvas, slide, index, total){
+    canvas.width = W; canvas.height = H;
+    const ctx = canvas.getContext('2d');
+    const pad = 56;
+    const textColor = '#ffffff';
+
+    // background — NOT dimmed in this style, photo stays true to its own tones
+    const img = photoForSlide(index);
+    if(img){
+      const scale = Math.max(W/img.width, H/img.height);
+      const iw = img.width*scale, ih = img.height*scale;
+      const ix = (W-iw)/2, iy = (H-ih)/2;
+      ctx.drawImage(img, ix, iy, iw, ih);
+    } else {
+      ctx.fillStyle = '#2a2a2a';
+      ctx.fillRect(0,0,W,H);
+    }
+
+    // nick (top-left, plain case, no rule under it — Plashka has no classic frame lines)
+    if(state.showNick && state.nick){
+      ctx.fillStyle = textColor;
+      ctx.font = '600 30px Arial, sans-serif';
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillText(state.nick, pad, 72);
+    }
+
+    // ---- bottom reserve: dots / arrow / icons live on the photo, below the plate ----
+    const bottomBarH = 86; // room kept clear under the plate for dots + icons
+    const plateBottomGap = 170; // the plate stops well short of the bottom edge — sits just below the midline, not the lower third
+
+    // ---- measure the text block first (without drawing) so the plate hugs it tightly ----
+    const plateLeft = 20, plateRight = W - 90; // plate doesn't span edge-to-edge — photo stays visible on both sides
+    const textInset = 36;
+    const textX = plateLeft + textInset, textW = (plateRight - plateLeft) - textInset*2;
+    const isCover = slide.type === 'cover';
+    const isQuestion = slide.type === 'question';
+
+    let boldFont, boldLh, boldText, normalFont, normalLh, normalText = '';
+    if(isCover){
+      boldFont = slideFont(900, 54); boldLh = 64;
+      boldText = slide.title;
+    } else if(isQuestion){
+      boldFont = slideFont(900, 46); boldLh = 56;
+      boldText = slide.bold;
+    } else {
+      boldFont = slideFont(900, 40); boldLh = 48;
+      boldText = (slide.num ? `${slide.num}. ` : '') + slide.bold;
+      if(slide.normal){
+        normalFont = slideFont(400, 36); normalLh = 46;
+        normalText = slide.normal;
+      }
+    }
+
+    ctx.font = boldFont;
+    const boldLines = wrapText(ctx, boldText, textW);
+    let normalLines = [];
+    if(normalText){
+      ctx.font = normalFont;
+      normalLines = wrapText(ctx, normalText, textW);
+    }
+
+    const padTop = 40, padBottom = 36, gapBetween = normalLines.length ? 18 : 0;
+    const textBlockH = boldLines.length*boldLh + (normalLines.length ? gapBetween + normalLines.length*normalLh : 0);
+    const plateH = padTop + textBlockH + padBottom;
+    const plateBottom = H - bottomBarH - plateBottomGap;
+    let plateTop = plateBottom - plateH;
+    // keep the plate from creeping too high on very long slides
+    plateTop = Math.max(plateTop, H*0.52);
+
+    ctx.fillStyle = `rgba(10,10,10,0.88)`;
+    ctx.fillRect(plateLeft, plateTop, plateRight - plateLeft, plateBottom - plateTop);
+
+    // colored accent bar — cover slide only, spanning exactly the plate's height
+    if(isCover){
+      ctx.fillStyle = state.lineColor;
+      ctx.fillRect(plateLeft, plateTop, 8, plateBottom - plateTop);
+    }
+
+    // draw the text
+    ctx.fillStyle = textColor;
+    ctx.font = boldFont;
+    let y = plateTop + padTop + boldLh*0.74;
+    boldLines.forEach(line => { fillTextBold(ctx, line, textX, y); y += boldLh; });
+    if(normalLines.length){
+      y += gapBetween;
+      ctx.font = normalFont;
+      normalLines.forEach(line => { ctx.fillText(line, textX, y); y += normalLh; });
+    }
+
+    // bottom row — on the photo, below the plate: dots centered, arrow + icons at the edges
+    const barY = H - bottomBarH/2 - 10;
+
+    // dot indicator (centered)
+    if(state.showCounter && total > 1){
+      const dotR = 4.5, gap = 16;
+      const totalW = (total-1) * gap;
+      let dx = W/2 - totalW/2;
+      for(let i=0;i<total;i++){
+        ctx.beginPath();
+        ctx.arc(dx, barY, i === index ? dotR+1.5 : dotR, 0, Math.PI*2);
+        ctx.fillStyle = i === index ? state.lineColor : 'rgba(255,255,255,0.55)';
+        ctx.fill();
+        dx += gap;
+      }
+    }
+
+    // share/save icons, same row — share bottom-left, save bottom-right
+    if(state.showIcons){
+      ctx.strokeStyle = textColor;
+      ctx.fillStyle = textColor;
+      ctx.lineWidth = 3;
+      const iy2 = barY;
+      ctx.beginPath();
+      ctx.moveTo(pad, iy2-19);
+      ctx.lineTo(pad+46, iy2-1);
+      ctx.lineTo(pad+6, iy2-1);
+      ctx.lineTo(pad, iy2+19);
+      ctx.closePath();
+      ctx.stroke();
+      const bx = W - pad - 30;
+      ctx.beginPath();
+      ctx.moveTo(bx-24, iy2-27);
+      ctx.lineTo(bx, iy2-27);
+      ctx.lineTo(bx, iy2+13);
+      ctx.lineTo(bx-12, iy2+3);
+      ctx.lineTo(bx-24, iy2+13);
+      ctx.closePath();
+      ctx.stroke();
+    }
+
+    // arrow "next" — sits between the dots and the save icon, same row
+    if(state.showArrow && index < total-1){
+      ctx.strokeStyle = textColor;
+      ctx.lineWidth = 3.5;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      const iconsReserve = state.showIcons ? 78 : 0;
+      const ax = W - pad - iconsReserve - 12, ay = barY;
+      [0, 12].forEach(off => {
+        ctx.beginPath();
+        ctx.moveTo(ax - 12 + off, ay - 11);
+        ctx.lineTo(ax + off, ay);
+        ctx.lineTo(ax - 12 + off, ay + 11);
+        ctx.stroke();
+      });
     }
   }
 
@@ -809,6 +1205,10 @@
   loadSettings();
   nickInput.value = state.nick || '';
   facePosBtns.forEach(b => b.classList.toggle('active', b.dataset.val === state.facePos));
+  styleSegBtns.forEach(b => b.classList.toggle('active', b.dataset.val === state.style));
+  applyStyleUI();
+  fontSelect.value = state.font;
+  if(state.font !== 'montserrat') ensureFontLoaded(state.font);
   showNick.checked = state.showNick;
   showLines.checked = state.showLines;
   showIcons.checked = state.showIcons;
@@ -819,6 +1219,7 @@
   lineLen.value = state.lineLen; lineLenVal.textContent = state.lineLen + '%';
   postText.value = state.text || '';
 
+  renderThumbs();
   render();
 })();
 </script>
