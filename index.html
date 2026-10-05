@@ -240,24 +240,60 @@
   }
   .slides-count b{color: var(--ink);}
   .strip{
-    display:flex;
-    gap: 10px;
-    overflow-x: auto;
-    padding-bottom: 8px;
-    scroll-snap-type: x mandatory;
-    min-height: 260px;
-    -webkit-overflow-scrolling: touch;
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
   }
-  .strip canvas{
-    scroll-snap-align: start;
+  .slide-card{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+  }
+  .slide-card-top{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    font-size:11px;
+    color: var(--muted);
+  }
+  .slide-card-top span{
+    background: var(--bg);
+    border:1px solid var(--line);
+    border-radius:6px;
+    padding:2px 7px;
+  }
+  .slide-canvas-wrap{
+    position:relative;
+    cursor:pointer;
+  }
+  .slide-canvas-wrap canvas{
     border-radius: 10px;
     border: 1px solid var(--line);
-    width: 220px;
-    min-width: 220px;
+    width: 100%;
     height: auto;
-    flex-shrink:0;
-    background:#000;
     display:block;
+    background:#000;
+  }
+  .slide-canvas-wrap .swap-hint{
+    position:absolute;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:rgba(0,0,0,0);
+    color:#fff;
+    font-size:12px;
+    font-weight:600;
+    border-radius:10px;
+    opacity:0;
+    transition: opacity .15s, background .15s;
+    pointer-events:none;
+    text-align:center;
+    padding:10px;
+  }
+  .slide-canvas-wrap:hover .swap-hint{
+    opacity:1;
+    background:rgba(0,0,0,0.45);
   }
   .empty-state{
     font-size: 13px;
@@ -388,6 +424,18 @@
       <div class="hint">Меняет текст слайдов. Ник и счётчик остаются фирменным шрифтом. Новый шрифт подгружается из интернета пару секунд.</div>
     </div>
 
+    <div class="field row">
+      <div>
+        <label>Размер шрифта: обложка <span class="rangeval" id="coverSizeVal">100%</span></label>
+        <input type="range" id="coverSize" min="60" max="140" value="100">
+      </div>
+      <div>
+        <label>Размер шрифта: слайды <span class="rangeval" id="slideSizeVal">100%</span></label>
+        <input type="range" id="slideSize" min="60" max="140" value="100">
+      </div>
+    </div>
+    <div class="hint" style="margin-top:-8px; margin-bottom:16px;">100% — стандарт. Если текст с таким размером не влезает, программа сама его ужмёт.</div>
+
     <h2 style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
       <span>Текст поста</span>
       <button class="secondary" id="clearTextBtn" style="padding:6px 12px; font-size:12px; text-transform:none; letter-spacing:0; font-weight:600;">Очистить</button>
@@ -423,6 +471,17 @@
 
 </div>
 
+<div id="photoPickerOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:100; align-items:center; justify-content:center; padding:20px;">
+  <div style="background:var(--panel); border-radius:var(--radius); padding:20px; max-width:420px; width:100%; max-height:80vh; overflow-y:auto;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+      <strong id="photoPickerTitle" style="font-size:14px;">Фото для слайда</strong>
+      <button id="photoPickerClose" class="secondary" style="padding:6px 12px; font-size:16px; line-height:1;">✕</button>
+    </div>
+    <div class="hint" style="margin-bottom:12px;">Нажми на фото — оно встанет на этот слайд. Остальные слайды не меняются.</div>
+    <div id="photoPickerGrid" style="display:grid; grid-template-columns:repeat(3,1fr); gap:10px;"></div>
+  </div>
+</div>
+
 <footer>Всё собирается в твоём браузере. Ничего не отправляется на сервер.</footer>
 
 <script>
@@ -452,6 +511,8 @@
   const state = {
     style: 'classic', // 'classic' | 'plashka'
     font: 'montserrat',
+    coverSize: 100, // % — font size for the cover slide
+    slideSize: 100, // % — font size for the rest of the slides (points + question)
     photos: [], // array of { img: Image, dataUrl: string }
     slidePhotoMap: {}, // slideIndex -> photos array index (explicit per-slide pick)
     nick: '',
@@ -489,6 +550,8 @@
       delete s.bg; // legacy key from the single-photo version
       Object.assign(state, s);
       if(!FONTS[state.font]) state.font = 'montserrat';
+      if(!(state.coverSize >= 60 && state.coverSize <= 140)) state.coverSize = 100;
+      if(!(state.slideSize >= 60 && state.slideSize <= 140)) state.slideSize = 100;
     }catch(e){}
   }
 
@@ -512,6 +575,10 @@
   const lineColor = document.getElementById('lineColor');
   const lineLen = document.getElementById('lineLen');
   const fontSelect = document.getElementById('fontSelect');
+  const coverSize = document.getElementById('coverSize');
+  const coverSizeVal = document.getElementById('coverSizeVal');
+  const slideSize = document.getElementById('slideSize');
+  const slideSizeVal = document.getElementById('slideSizeVal');
   const lineLenVal = document.getElementById('lineLenVal');
   const postText = document.getElementById('postText');
   const demoBtn = document.getElementById('demoBtn');
@@ -632,6 +699,47 @@
     saveSettings();
   });
 
+  // ---------- per-slide photo picker ----------
+  const photoPickerOverlay = document.getElementById('photoPickerOverlay');
+  const photoPickerTitle = document.getElementById('photoPickerTitle');
+  const photoPickerGrid = document.getElementById('photoPickerGrid');
+  const photoPickerClose = document.getElementById('photoPickerClose');
+  let pickerSlideIndex = null;
+
+  function openPhotoPicker(slideIndex){
+    if(state.photos.length === 0) return;
+    pickerSlideIndex = slideIndex;
+    photoPickerTitle.textContent = `Фото для слайда ${slideIndex+1}`;
+    photoPickerGrid.innerHTML = '';
+    const currentIdx = state.slidePhotoMap[slideIndex] != null ? state.slidePhotoMap[slideIndex] : (slideIndex % state.photos.length);
+    state.photos.forEach((p, i) => {
+      const cell = document.createElement('div');
+      cell.style.cssText = 'position:relative; border-radius:8px; overflow:hidden; cursor:pointer; aspect-ratio:4/5; border:2px solid ' + (i === currentIdx ? 'var(--accent)' : 'var(--line)') + ';';
+      const im = document.createElement('img');
+      im.src = p.dataUrl;
+      im.style.cssText = 'width:100%; height:100%; object-fit:cover; display:block;';
+      cell.appendChild(im);
+      cell.addEventListener('click', () => {
+        state.slidePhotoMap[pickerSlideIndex] = i;
+        closePhotoPicker();
+        render();
+        saveSettings();
+      });
+      photoPickerGrid.appendChild(cell);
+    });
+    photoPickerOverlay.style.display = 'flex';
+  }
+
+  function closePhotoPicker(){
+    photoPickerOverlay.style.display = 'none';
+    pickerSlideIndex = null;
+  }
+
+  photoPickerClose.addEventListener('click', closePhotoPicker);
+  photoPickerOverlay.addEventListener('click', e => {
+    if(e.target === photoPickerOverlay) closePhotoPicker();
+  });
+
   dropzone.addEventListener('click', () => fileInput.click());
   fileInput.addEventListener('change', e => handleFiles(e.target.files));
   ['dragenter','dragover'].forEach(ev => dropzone.addEventListener(ev, e => {
@@ -704,6 +812,15 @@
     // give the browser a moment to apply the newly-loaded font before redrawing
     setTimeout(render, 150);
     saveSettings();
+  });
+
+  coverSize.addEventListener('input', () => {
+    state.coverSize = +coverSize.value; coverSizeVal.textContent = coverSize.value + '%';
+    render(); saveSettings();
+  });
+  slideSize.addEventListener('input', () => {
+    state.slideSize = +slideSize.value; slideSizeVal.textContent = slideSize.value + '%';
+    render(); saveSettings();
   });
 
   postText.addEventListener('input', () => { state.text = postText.value; render(); saveSettings(); });
@@ -889,11 +1006,12 @@
 
     if(slide.type === 'cover'){
       const isCentered = state.facePos === 'none';
-      ctx.font = slideFont(900, 60);
+      const cs = state.coverSize/100;
+      ctx.font = slideFont(900, Math.round(60*cs));
       const coverW = isCentered ? W - pad*2 : textW;
       const coverX = isCentered ? pad : textX;
       const lines = wrapText(ctx, slide.title, coverW);
-      const lh = 70;
+      const lh = Math.round(70*cs);
       y = H/2 - (lines.length*lh)/2 + lh*0.7;
       if(isCentered){
         ctx.textAlign = 'center';
@@ -904,27 +1022,29 @@
       }
     } else if(slide.type === 'question'){
       // final slide: centered question, no number, no body text
-      ctx.font = slideFont(900, 54);
+      const ss = state.slideSize/100;
+      ctx.font = slideFont(900, Math.round(54*ss));
       ctx.textAlign = 'center';
       const lines = wrapText(ctx, slide.bold, W - pad*2 - 80);
-      const lh = 66;
+      const lh = Math.round(66*ss);
       y = H/2 - (lines.length*lh)/2 + lh*0.7;
       lines.forEach(line => { fillTextBold(ctx, line, W/2, y); y += lh; });
       ctx.textAlign = 'left';
     } else {
       // bold sentence, with the number folded into the same line
-      ctx.font = slideFont(900, 48);
+      const ss = state.slideSize/100;
+      ctx.font = slideFont(900, Math.round(48*ss));
       const prefix = slide.num ? `${slide.num}. ` : '';
       const boldLines = wrapText(ctx, prefix + slide.bold, textW);
-      const lh1 = 56;
+      const lh1 = Math.round(56*ss);
       boldLines.forEach(line => { fillTextBold(ctx, line, textX, y); y += lh1; });
 
       // normal text
       if(slide.normal){
         y += 16;
-        ctx.font = slideFont(400, 34);
+        ctx.font = slideFont(400, Math.round(34*ss));
         const normLines = wrapText(ctx, slide.normal, textW);
-        const lh2 = 46;
+        const lh2 = Math.round(46*ss);
         normLines.forEach(line => { ctx.fillText(line, textX, y); y += lh2; });
       }
     }
@@ -993,37 +1113,65 @@
     const isCover = slide.type === 'cover';
     const isQuestion = slide.type === 'question';
 
-    let boldFont, boldLh, boldText, normalFont, normalLh, normalText = '';
-    if(isCover){
-      boldFont = slideFont(900, 54); boldLh = 64;
-      boldText = slide.title;
-    } else if(isQuestion){
-      boldFont = slideFont(900, 46); boldLh = 56;
-      boldText = slide.bold;
-    } else {
-      boldFont = slideFont(900, 40); boldLh = 48;
-      boldText = (slide.num ? `${slide.num}. ` : '') + slide.bold;
-      if(slide.normal){
-        normalFont = slideFont(400, 36); normalLh = 46;
-        normalText = slide.normal;
-      }
-    }
+    // base sizes — scaled by the user's font-size setting first, then further shrunk by
+    // the auto-fit `scale` below if the text still doesn't fit at max plate height
+    const userScale = isCover ? state.coverSize/100 : state.slideSize/100;
+    const rawSizes = isCover
+      ? { boldSize: 54, boldLh: 64, normalSize: 0, normalLh: 0 }
+      : isQuestion
+        ? { boldSize: 46, boldLh: 56, normalSize: 0, normalLh: 0 }
+        : { boldSize: 40, boldLh: 48, normalSize: 36, normalLh: 46 };
+    const baseSizes = {
+      boldSize: rawSizes.boldSize * userScale,
+      boldLh: rawSizes.boldLh * userScale,
+      normalSize: rawSizes.normalSize * userScale,
+      normalLh: rawSizes.normalLh * userScale
+    };
 
-    ctx.font = boldFont;
-    const boldLines = wrapText(ctx, boldText, textW);
-    let normalLines = [];
-    if(normalText){
-      ctx.font = normalFont;
-      normalLines = wrapText(ctx, normalText, textW);
-    }
-
-    const padTop = 40, padBottom = 36, gapBetween = normalLines.length ? 18 : 0;
-    const textBlockH = boldLines.length*boldLh + (normalLines.length ? gapBetween + normalLines.length*normalLh : 0);
-    const plateH = padTop + textBlockH + padBottom;
+    const padTop = 40, padBottom = 36;
     const plateBottom = H - bottomBarH - plateBottomGap;
+    // plate can grow up to just below the nick row — this is the absolute ceiling
+    const plateTopCeiling = 150;
+    const maxPlateH = plateBottom - plateTopCeiling;
+
+    let boldFont, boldLh, boldText, normalFont, normalLh, normalText = '';
+    let boldLines, normalLines, textBlockH, plateH, scale = 1;
+
+    function measureAtScale(s){
+      const boldSize = Math.round(baseSizes.boldSize * s);
+      boldLh = Math.round(baseSizes.boldLh * s);
+      boldFont = slideFont(900, boldSize);
+      boldText = isCover ? slide.title : isQuestion ? slide.bold : (slide.num ? `${slide.num}. ` : '') + slide.bold;
+      ctx.font = boldFont;
+      boldLines = wrapText(ctx, boldText, textW);
+
+      normalLines = [];
+      if(!isCover && !isQuestion && slide.normal){
+        const normalSize = Math.round(baseSizes.normalSize * s);
+        normalLh = Math.round(baseSizes.normalLh * s);
+        normalFont = slideFont(400, normalSize);
+        normalText = slide.normal;
+        ctx.font = normalFont;
+        normalLines = wrapText(ctx, normalText, textW);
+      }
+      const gapBetween = normalLines.length ? Math.round(18*s) : 0;
+      textBlockH = boldLines.length*boldLh + (normalLines.length ? gapBetween + normalLines.length*normalLh : 0);
+      plateH = Math.round(padTop*s) + textBlockH + Math.round(padBottom*s);
+      return { plateH, gapBetween };
+    }
+
+    let gapBetween = measureAtScale(1).gapBetween;
+    // if the text doesn't fit even at the max plate height, shrink the font step by step until it does
+    while(plateH > maxPlateH && scale > 0.6){
+      scale -= 0.05;
+      gapBetween = measureAtScale(scale).gapBetween;
+    }
+
     let plateTop = plateBottom - plateH;
-    // keep the plate from creeping too high on very long slides
-    plateTop = Math.max(plateTop, H*0.52);
+    // short slides naturally land with plateTop below the midline — that's fine as is.
+    // long slides naturally push plateTop above the midline (smaller number) — that's fine too, the plate
+    // just grows taller. The only real limit is the ceiling, so the plate never reaches the nick row.
+    plateTop = Math.max(plateTop, plateTopCeiling);
 
     ctx.fillStyle = `rgba(10,10,10,0.88)`;
     ctx.fillRect(plateLeft, plateTop, plateRight - plateLeft, plateBottom - plateTop);
@@ -1037,7 +1185,7 @@
     // draw the text
     ctx.fillStyle = textColor;
     ctx.font = boldFont;
-    let y = plateTop + padTop + boldLh*0.74;
+    let y = plateTop + Math.round(padTop*scale) + boldLh*0.74;
     boldLines.forEach(line => { fillTextBold(ctx, line, textX, y); y += boldLh; });
     if(normalLines.length){
       y += gapBetween;
@@ -1123,9 +1271,37 @@
     strip.className = 'strip';
     try {
       currentSlides.forEach((slide, i) => {
+        const card = document.createElement('div');
+        card.className = 'slide-card';
+
+        const top = document.createElement('div');
+        top.className = 'slide-card-top';
+        const kindLabel = document.createElement('span');
+        kindLabel.textContent = i === 0 ? 'обложка' : (i === currentSlides.length-1 && slide.type === 'question') ? 'вопрос' : 'слайд';
+        top.appendChild(kindLabel);
+        if(state.photos.length > 0){
+          const photoIdx = state.slidePhotoMap[i] != null ? state.slidePhotoMap[i] : (i % state.photos.length);
+          const photoLabel = document.createElement('span');
+          photoLabel.textContent = `фото ${photoIdx+1}`;
+          top.appendChild(photoLabel);
+        }
+        card.appendChild(top);
+
+        const wrap = document.createElement('div');
+        wrap.className = 'slide-canvas-wrap';
         const canvas = document.createElement('canvas');
         drawSlide(canvas, slide, i, currentSlides.length);
-        strip.appendChild(canvas);
+        wrap.appendChild(canvas);
+        if(state.photos.length > 1){
+          const hint = document.createElement('div');
+          hint.className = 'swap-hint';
+          hint.textContent = 'Нажми, чтобы сменить фото';
+          wrap.appendChild(hint);
+          wrap.addEventListener('click', () => openPhotoPicker(i));
+        }
+        card.appendChild(wrap);
+
+        strip.appendChild(card);
       });
       stripWrap.appendChild(strip);
       downloadBtn.disabled = false;
@@ -1217,6 +1393,8 @@
   dim.value = state.dim; dimVal.textContent = state.dim + '%';
   lineColor.value = state.lineColor;
   lineLen.value = state.lineLen; lineLenVal.textContent = state.lineLen + '%';
+  coverSize.value = state.coverSize; coverSizeVal.textContent = state.coverSize + '%';
+  slideSize.value = state.slideSize; slideSizeVal.textContent = state.slideSize + '%';
   postText.value = state.text || '';
 
   renderThumbs();
