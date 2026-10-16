@@ -6,13 +6,14 @@
 <title>Конструктор карусели</title>
 <style>
   :root{
-    --bg: #f7f6f3;
-    --panel: #ffffff;
-    --ink: #1c1c1c;
-    --muted: #767267;
-    --line: #e4e1da;
-    --accent: #b5673a;
-    --accent-soft: #f1e3d8;
+    --bg: #0d0d0f;
+    --panel: #18181b;
+    --ink: #f2f1ee;
+    --muted: #9a968d;
+    --line: #2d2d31;
+    --accent: #d9693a;
+    --accent-soft: #3a2a20;
+    --input-bg: #221f1c;
     --radius: 14px;
   }
   *{box-sizing:border-box;}
@@ -83,6 +84,15 @@
   body.style-plashka .classic-only{
     display: none !important;
   }
+  .plashka-only{
+    display: none !important;
+  }
+  body.style-plashka .plashka-only{
+    display: block !important;
+  }
+  body.style-plashka .plashka-only.field-row-flex{
+    display: flex !important;
+  }
   input[type=text], textarea{
     width:100%;
     border: 1px solid var(--line);
@@ -90,7 +100,8 @@
     padding: 10px 12px;
     font-size: 14px;
     font-family: inherit;
-    background: #fdfdfc;
+    background: var(--input-bg);
+    color: var(--ink);
   }
   textarea{
     min-height: 220px;
@@ -177,15 +188,16 @@
     padding: 9px 8px;
     border-radius: 8px;
     border: 1px solid var(--line);
-    background: #fdfdfc;
+    background: var(--input-bg);
+    color: var(--ink);
     font-size: 13px;
     cursor:pointer;
     font-family: inherit;
   }
   .seg button.active{
-    background: var(--ink);
+    background: var(--accent);
     color: #fff;
-    border-color: var(--ink);
+    border-color: var(--accent);
   }
   .checks{
     display:flex;
@@ -328,7 +340,8 @@
     padding: 13px 16px;
     border-radius: 10px;
     border: 1px solid var(--line);
-    background: #fdfdfc;
+    background: var(--input-bg);
+    color: var(--ink);
     font-size: 13px;
     cursor: pointer;
     font-family: inherit;
@@ -407,6 +420,12 @@
       </div>
     </div>
 
+    <div class="field">
+      <label>Цвет текста</label>
+      <div id="textColorSwatches" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px;"></div>
+      <div class="hint" id="textColorContrastHint"></div>
+    </div>
+
     <div class="field row">
       <div>
         <label id="lineColorLabel">Цвет линий</label>
@@ -418,9 +437,20 @@
       </div>
     </div>
 
+    <div class="field row plashka-only field-row-flex" id="plateColorRow">
+      <div>
+        <label>Цвет плашки</label>
+        <input type="color" id="plateColor" value="#0a0a0a">
+      </div>
+      <div>
+        <label>Прозрачность плашки <span class="rangeval" id="plateOpacityVal">88%</span></label>
+        <input type="range" id="plateOpacity" min="20" max="100" value="88">
+      </div>
+    </div>
+
     <div class="field">
       <label>Шрифт</label>
-      <select id="fontSelect" style="width:100%; border:1px solid var(--line); border-radius:8px; padding:10px 12px; font-size:14px; font-family:inherit; background:#fdfdfc;"></select>
+      <select id="fontSelect" style="width:100%; border:1px solid var(--line); border-radius:8px; padding:10px 12px; font-size:14px; font-family:inherit; background:var(--input-bg); color:var(--ink);"></select>
       <div class="hint">Меняет текст слайдов. Ник и счётчик остаются фирменным шрифтом. Новый шрифт подгружается из интернета пару секунд.</div>
     </div>
 
@@ -513,6 +543,9 @@
     font: 'montserrat',
     coverSize: 100, // % — font size for the cover slide
     slideSize: 100, // % — font size for the rest of the slides (points + question)
+    plateColor: '#0a0a0a', // Plashka style only — independent of text color
+    plateOpacity: 88, // %
+    textColor: '#ffffff', // slide text color — cover, points, question, nick, counter/dots
     photos: [], // array of { img: Image, dataUrl: string }
     slidePhotoMap: {}, // slideIndex -> photos array index (explicit per-slide pick)
     nick: '',
@@ -550,6 +583,9 @@
       delete s.bg; // legacy key from the single-photo version
       Object.assign(state, s);
       if(!FONTS[state.font]) state.font = 'montserrat';
+      if(typeof state.plateColor !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(state.plateColor)) state.plateColor = '#0a0a0a';
+      if(!(state.plateOpacity >= 20 && state.plateOpacity <= 100)) state.plateOpacity = 88;
+      if(typeof state.textColor !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(state.textColor)) state.textColor = '#ffffff';
       if(!(state.coverSize >= 60 && state.coverSize <= 140)) state.coverSize = 100;
       if(!(state.slideSize >= 60 && state.slideSize <= 140)) state.slideSize = 100;
     }catch(e){}
@@ -572,7 +608,12 @@
   const showCounter = document.getElementById('showCounter');
   const dim = document.getElementById('dim');
   const dimVal = document.getElementById('dimVal');
+  const textColorSwatches = document.getElementById('textColorSwatches');
+  const textColorContrastHint = document.getElementById('textColorContrastHint');
   const lineColor = document.getElementById('lineColor');
+  const plateColor = document.getElementById('plateColor');
+  const plateOpacity = document.getElementById('plateOpacity');
+  const plateOpacityVal = document.getElementById('plateOpacityVal');
   const lineLen = document.getElementById('lineLen');
   const fontSelect = document.getElementById('fontSelect');
   const coverSize = document.getElementById('coverSize');
@@ -781,6 +822,7 @@
     btn.classList.add('active');
     state.style = btn.dataset.val;
     applyStyleUI();
+    updateContrastHint();
     render(); saveSettings();
   }));
 
@@ -794,7 +836,73 @@
     state.dim = +dim.value; dimVal.textContent = dim.value + '%';
     render(); saveSettings();
   });
+  const TEXT_COLOR_PRESETS = ['#ffffff', '#f2f1ee', '#e8dcc8', '#d4af6a', '#8a8a8a', '#0a0a0a'];
+
+  function hexLuminance(hex){
+    const clean = (hex || '').replace('#','');
+    if(!/^[0-9a-fA-F]{6}$/.test(clean)) return 1;
+    const [r,g,b] = clean.match(/.{2}/g).map(h => parseInt(h,16)/255);
+    return 0.2126*r + 0.7152*g + 0.0722*b;
+  }
+
+  function renderTextColorSwatches(){
+    textColorSwatches.innerHTML = '';
+    TEXT_COLOR_PRESETS.forEach(hex => {
+      const sw = document.createElement('button');
+      sw.type = 'button';
+      sw.title = hex;
+      const active = state.textColor.toLowerCase() === hex;
+      sw.style.cssText = `width:32px; height:32px; border-radius:8px; background:${hex}; cursor:pointer; padding:0; border:2px solid ${active ? 'var(--accent)' : 'var(--line)'};`;
+      sw.addEventListener('click', () => {
+        state.textColor = hex;
+        renderTextColorSwatches();
+        render(); saveSettings();
+      });
+      textColorSwatches.appendChild(sw);
+    });
+    // custom color picker as the last swatch
+    const customWrap = document.createElement('div');
+    customWrap.style.cssText = 'position:relative; width:32px; height:32px;';
+    const isCustom = !TEXT_COLOR_PRESETS.includes(state.textColor.toLowerCase());
+    const customInput = document.createElement('input');
+    customInput.type = 'color';
+    customInput.value = state.textColor;
+    customInput.style.cssText = `width:32px; height:32px; border-radius:8px; padding:0; cursor:pointer; border:2px solid ${isCustom ? 'var(--accent)' : 'var(--line)'};`;
+    customInput.title = 'Свой цвет';
+    customInput.addEventListener('input', () => {
+      state.textColor = customInput.value;
+      renderTextColorSwatches();
+      render(); saveSettings();
+    });
+    customWrap.appendChild(customInput);
+    textColorSwatches.appendChild(customWrap);
+
+    updateContrastHint();
+  }
+
+  function updateContrastHint(){
+    if(state.style !== 'plashka'){
+      textColorContrastHint.textContent = 'Весь текст слайдов сразу: обложка, пункты, ник, точки. Возьмёшь тёмный цвет — на светлом фоне линии/иконки тоже потемнеют вместе с текстом.';
+      return;
+    }
+    const textLum = hexLuminance(state.textColor);
+    const plateLum = hexLuminance(state.plateColor);
+    const contrast = Math.abs(textLum - plateLum);
+    if(contrast < 0.25){
+      textColorContrastHint.textContent = '⚠️ Текст и плашка слишком похожи по цвету — на слайде будет плохо видно. Выбери контрастный цвет или поменяй цвет плашки.';
+      textColorContrastHint.style.color = '#e07a5f';
+    } else {
+      textColorContrastHint.textContent = 'Весь текст слайдов: обложка, пункты, ник, точки.';
+      textColorContrastHint.style.color = '';
+    }
+  }
+
   lineColor.addEventListener('input', () => { state.lineColor = lineColor.value; render(); saveSettings(); });
+  plateColor.addEventListener('input', () => { state.plateColor = plateColor.value; updateContrastHint(); render(); saveSettings(); });
+  plateOpacity.addEventListener('input', () => {
+    state.plateOpacity = +plateOpacity.value; plateOpacityVal.textContent = plateOpacity.value + '%';
+    render(); saveSettings();
+  });
   lineLen.addEventListener('input', () => {
     state.lineLen = +lineLen.value; lineLenVal.textContent = lineLen.value + '%';
     render(); saveSettings();
@@ -870,6 +978,15 @@
   }
 
   // ---------- canvas rendering ----------
+  function hexToRgba(hex, opacityPercent){
+    const clean = (hex || '').replace('#','');
+    const valid = /^[0-9a-fA-F]{6}$/.test(clean);
+    if(!valid) return `rgba(10,10,10,${opacityPercent/100})`;
+    const m = clean.match(/.{2}/g);
+    const [r,g,b] = m.map(h => parseInt(h,16));
+    return `rgba(${r},${g},${b},${opacityPercent/100})`;
+  }
+
   function slideFont(weight, size){
     const f = FONTS[state.font] || FONTS.montserrat;
     return `${weight} ${size}px ${f.css}`;
@@ -935,7 +1052,7 @@
     }
 
     const pad = 64;
-    const textColor = '#ffffff';
+    const textColor = state.textColor;
     const topY = 80;      // baseline for nick row
     const lineY = 110;    // rule under the nick
     const bottomRowY = H - 200; // counter / arrow row — above the rule
@@ -1080,7 +1197,7 @@
     canvas.width = W; canvas.height = H;
     const ctx = canvas.getContext('2d');
     const pad = 56;
-    const textColor = '#ffffff';
+    const textColor = state.textColor;
 
     // background — NOT dimmed in this style, photo stays true to its own tones
     const img = photoForSlide(index);
@@ -1107,7 +1224,8 @@
     const plateBottomGap = 170; // the plate stops well short of the bottom edge — sits just below the midline, not the lower third
 
     // ---- measure the text block first (without drawing) so the plate hugs it tightly ----
-    const plateLeft = 20, plateRight = W - 90; // plate doesn't span edge-to-edge — photo stays visible on both sides
+    const plateSideGap = 44; // equal gap left and right — plate doesn't span edge-to-edge
+    const plateLeft = plateSideGap, plateRight = W - plateSideGap;
     const textInset = 36;
     const textX = plateLeft + textInset, textW = (plateRight - plateLeft) - textInset*2;
     const isCover = slide.type === 'cover';
@@ -1173,7 +1291,7 @@
     // just grows taller. The only real limit is the ceiling, so the plate never reaches the nick row.
     plateTop = Math.max(plateTop, plateTopCeiling);
 
-    ctx.fillStyle = `rgba(10,10,10,0.88)`;
+    ctx.fillStyle = hexToRgba(state.plateColor, state.plateOpacity);
     ctx.fillRect(plateLeft, plateTop, plateRight - plateLeft, plateBottom - plateTop);
 
     // colored accent bar — cover slide only, spanning exactly the plate's height
@@ -1391,7 +1509,10 @@
   showArrow.checked = state.showArrow;
   showCounter.checked = state.showCounter;
   dim.value = state.dim; dimVal.textContent = state.dim + '%';
+  renderTextColorSwatches();
   lineColor.value = state.lineColor;
+  plateColor.value = state.plateColor;
+  plateOpacity.value = state.plateOpacity; plateOpacityVal.textContent = state.plateOpacity + '%';
   lineLen.value = state.lineLen; lineLenVal.textContent = state.lineLen + '%';
   coverSize.value = state.coverSize; coverSizeVal.textContent = state.coverSize + '%';
   slideSize.value = state.slideSize; slideSizeVal.textContent = state.slideSize + '%';
