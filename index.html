@@ -479,7 +479,7 @@
 1. Второй пункт, тоже с жирным началом. Дальше пояснение.
 
 А как у тебя с этим?"></textarea>
-      <div class="hint">Первая строка = обложка. Каждый блок между пустыми строками = слайд. Последняя строка = вопрос-финал.</div>
+      <div class="hint">Первая строка = обложка. Каждый блок между пустыми строками = отдельный слайд, без изменений. Первая строка блока — жирным, остальные строки под ней — обычным текстом.</div>
     </div>
 
     <button class="secondary" id="demoBtn" style="width:100%">Вставить демо-текст</button>
@@ -524,7 +524,8 @@
     rubik:      { label: 'Rubik', css: "'Rubik', Arial, sans-serif", google: 'Rubik:wght@400;600;700;900' },
     golos:      { label: 'Golos Text', css: "'Golos Text', Arial, sans-serif", google: 'Golos+Text:wght@400;600;700;900' },
     playfair:   { label: 'Playfair Display — с засечками', css: "'Playfair Display', Georgia, serif", google: 'Playfair+Display:wght@400;600;700;900' },
-    unbounded:  { label: 'Unbounded — широкий', css: "'Unbounded', Arial, sans-serif", google: 'Unbounded:wght@400;600;700;900' }
+    unbounded:  { label: 'Unbounded — широкий', css: "'Unbounded', Arial, sans-serif", google: 'Unbounded:wght@400;600;700;900' },
+    nunito:     { label: 'Nunito — круглый, мягкий', css: "'Nunito', Arial, sans-serif", google: 'Nunito:wght@400;600;700;900' }
   };
   const loadedFonts = new Set();
   function ensureFontLoaded(key){
@@ -954,24 +955,15 @@
     const title = blocks[0];
     const rest = blocks.slice(1);
     const slides = [{type:'cover', title: title}];
-    rest.forEach((block, i) => {
-      const isLast = i === rest.length - 1;
-      // strip leading "1. " / "2)" numbering, keep if present separately
-      const cleaned = block.replace(/^\s*\d+[\.\)]\s*/, '');
-      // split into first sentence (bold) + rest
-      const m = cleaned.match(/^(.+?[\.\!\?])(\s+|$)([\s\S]*)$/);
-      let bold, normal;
-      if(m){
-        bold = m[1];
-        normal = m[3] || '';
-      } else {
-        bold = cleaned;
-        normal = '';
-      }
+    rest.forEach(block => {
+      // a block can have multiple lines (single \n, no blank line) — the first line
+      // is the bold lead-in, any further lines are the normal body text below it
+      const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
+      const bold = lines[0] || '';
+      const normal = lines.slice(1).join(' ');
       slides.push({
-        type: isLast ? 'question' : 'point',
-        bold, normal,
-        num: i+1
+        type: 'point',
+        bold, normal
       });
     });
     return slides;
